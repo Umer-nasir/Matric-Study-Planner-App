@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Calendar } from 'lucide-react';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
@@ -13,7 +13,7 @@ const TYPE_STYLES: Record<StudyEvent['type'], { bg: string; text: string; label:
 };
 
 export function MiniCalendar() {
-  const { events, addEvent, removeEvent } = useAppContext();
+  const { events, addEvent, removeEvent, currentMode } = useAppContext();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
@@ -23,6 +23,12 @@ export function MiniCalendar() {
     .filter((e) => isFuture(parseISO(e.date)) || isToday(parseISO(e.date)))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 10);
+
+  const isFocus = currentMode === 'focus';
+
+  useEffect(() => {
+    if (isFocus) setShowForm(false);
+  }, [isFocus]);
 
   const handleAdd = () => {
     if (!title.trim() || !date) return;
@@ -37,18 +43,20 @@ export function MiniCalendar() {
     <div className="space-y-3" data-testid="mini-calendar">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-foreground tracking-tight">Upcoming Events</h2>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          data-testid="button-add-event"
-          className="flex min-h-[44px] items-center gap-1 rounded-2xl px-2 text-primary text-sm font-semibold"
-        >
-          <Plus size={16} />
-          Add
-        </button>
+        {!isFocus && (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            data-testid="button-add-event"
+            className="flex min-h-[44px] items-center gap-1 rounded-2xl px-2 text-primary text-sm font-semibold"
+          >
+            <Plus size={16} />
+            Add
+          </button>
+        )}
       </div>
 
       <AnimatePresence>
-        {showForm && (
+        {showForm && !isFocus && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -109,7 +117,9 @@ export function MiniCalendar() {
       {upcoming.length === 0 ? (
         <div className="bg-card rounded-2xl border border-card-border border-dashed p-5 flex items-center gap-3 text-muted-foreground">
           <Calendar size={20} />
-          <p className="text-sm">No upcoming events. Add one to get started!</p>
+          <p className="text-sm">
+            {isFocus ? 'No upcoming events.' : 'No upcoming events. Add one to get started!'}
+          </p>
         </div>
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
@@ -127,14 +137,16 @@ export function MiniCalendar() {
                 className="shrink-0 w-28 bg-card rounded-2xl border border-card-border p-3 relative"
                 data-testid={`event-card-${evt.id}`}
               >
-                <button
-                  onClick={() => removeEvent(evt.id)}
-                  className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 hover:bg-secondary hover:text-muted-foreground"
-                  data-testid={`button-remove-event-${evt.id}`}
-                  aria-label={`Remove ${evt.title}`}
-                >
-                  <X size={12} />
-                </button>
+                {!isFocus && (
+                  <button
+                    onClick={() => removeEvent(evt.id)}
+                    className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 hover:bg-secondary hover:text-muted-foreground"
+                    data-testid={`button-remove-event-${evt.id}`}
+                    aria-label={`Remove ${evt.title}`}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
                 <div className="text-2xl font-black text-foreground leading-none mb-0.5">
                   {format(d, 'd')}
                 </div>

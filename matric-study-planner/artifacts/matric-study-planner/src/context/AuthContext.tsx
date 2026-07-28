@@ -49,6 +49,28 @@ function loadStoredUser(): AuthUser | null {
   }
 }
 
+function getFirebaseErrorCode(error: unknown): string {
+  return typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+}
+
+function googleSignInErrorMessage(code: string): string {
+  if (code.includes('unauthorized-domain')) {
+    return 'Google sign-in is blocked because this domain is not authorized in Firebase. Add this Vercel domain in Firebase Auth settings.';
+  }
+  if (code.includes('operation-not-allowed')) {
+    return 'Google sign-in is not enabled in Firebase yet. Enable Google as a sign-in provider.';
+  }
+  if (code.includes('invalid-api-key') || code.includes('api-key-not-valid')) {
+    return 'Google sign-in is not configured correctly. Check the Firebase environment variables in Vercel.';
+  }
+  return 'Google sign-in unavailable right now. Please continue as guest.';
+}
+
+function shouldUseRedirectSignIn(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(max-width: 768px)').matches ?? false;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadStoredUser());
   const [isGuest, setIsGuest] = useState(() => localStorage.getItem(AUTH_GUEST_KEY) === 'true');
@@ -61,8 +83,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void getFirebaseServices()
       .then(async (services) => {
         if (!services || cancelled) return;
-        const { onAuthStateChanged } = await import('firebase/auth');
+        const { getRedirectResult, onAuthStateChanged } = await import('firebase/auth');
         if (cancelled) return;
+
+        getRedirectResult(services.auth)
+          .then((result) => {
+            if (!result || cancelled) return;
+            const authUser = toAuthUser(result.user);
+            setCurrentUser(authUser);
+            setIsGuest(false);
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+            localStorage.removeItem(AUTH_GUEST_KEY);
+          })
+          .catch(() => undefined);
 
         unsubscribe = onAuthStateChanged(services.auth, (user) => {
           if (user) {
@@ -92,7 +125,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { signInWithPopup } = await import('firebase/auth');
+      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
+      if (shouldUseRedirectSignIn()) {
+        await signInWithRedirect(services.auth, services.provider);
+        return;
+      }
+
       const result = await signInWithPopup(services.auth, services.provider);
       const authUser = toAuthUser(result.user);
       setCurrentUser(authUser);
@@ -100,11 +138,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
       localStorage.removeItem(AUTH_GUEST_KEY);
     } catch (error) {
-      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+      const code = getFirebaseErrorCode(error);
       if (code.includes('popup-closed-by-user') || code.includes('cancelled-popup-request')) {
         throw new Error('Google sign-in was cancelled. You can try again or continue as guest.');
       }
-      throw new Error('Google sign-in unavailable right now. Please continue as guest.');
+      if (code.includes('popup-blocked') || code.includes('operation-not-supported-in-this-environment')) {
+        const { signInWithRedirect } = await import('firebase/auth');
+        await signInWithRedirect(services.auth, services.provider);
+        return;
+      }
+      throw new Error(googleSignInErrorMessage(code));
     }
   }, []);
 

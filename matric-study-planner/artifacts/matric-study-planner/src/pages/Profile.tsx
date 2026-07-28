@@ -18,6 +18,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { GoogleIcon } from '@/components/GoogleIcon';
 import { ModeIndicator } from '@/components/ModeIndicator';
 import { SubjectIcon } from '@/components/SubjectIcon';
 import { useAppContext } from '@/context/AppContext';
@@ -223,7 +224,9 @@ export default function Profile() {
                   onClick={handleProfileGoogleSignIn}
                   disabled={isSigningIn}
                   data-testid="button-profile-google-sign-in"
+                  className="gap-2 bg-white text-[#3c4043] hover:bg-[#f8fafd]"
                 >
+                  {!isSigningIn && <GoogleIcon />}
                   {isSigningIn ? 'Opening Google...' : 'Sign in with Google'}
                 </Button>
               )}
