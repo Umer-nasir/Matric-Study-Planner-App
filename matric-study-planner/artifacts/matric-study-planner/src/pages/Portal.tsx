@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpenCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/Button';
@@ -6,10 +6,19 @@ import { Card } from '@/components/Card';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { useAuthContext } from '@/context/AuthContext';
 
+const AUTH_REDIRECT_ERROR_KEY = 'matric_auth_redirect_error';
+
 export default function Portal() {
   const { signInWithGoogle, continueAsGuest } = useAuthContext();
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  useEffect(() => {
+    const redirectError = localStorage.getItem(AUTH_REDIRECT_ERROR_KEY);
+    if (!redirectError) return;
+    setError(redirectError);
+    localStorage.removeItem(AUTH_REDIRECT_ERROR_KEY);
+  }, []);
 
   async function handleGoogleSignIn() {
     setError(null);

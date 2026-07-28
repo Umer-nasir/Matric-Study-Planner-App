@@ -12,6 +12,7 @@ import { getFirebaseServices } from '@/lib/firebase';
 
 const AUTH_GUEST_KEY = 'matric_auth_guest';
 const AUTH_USER_KEY = 'matric_auth_user';
+const AUTH_REDIRECT_ERROR_KEY = 'matric_auth_redirect_error';
 
 export interface AuthUser {
   uid: string;
@@ -54,16 +55,22 @@ function getFirebaseErrorCode(error: unknown): string {
 }
 
 function googleSignInErrorMessage(code: string): string {
+  if (!code) {
+    return 'Google sign-in failed, but Firebase did not return a setup code. Check Firebase config and authorized domains.';
+  }
   if (code.includes('unauthorized-domain')) {
     return 'Google sign-in is blocked because this domain is not authorized in Firebase. Add this Vercel domain in Firebase Auth settings.';
   }
-  if (code.includes('operation-not-allowed')) {
+  if (code.includes('operation-not-allowed') || code.includes('configuration-not-found')) {
     return 'Google sign-in is not enabled in Firebase yet. Enable Google as a sign-in provider.';
   }
   if (code.includes('invalid-api-key') || code.includes('api-key-not-valid')) {
     return 'Google sign-in is not configured correctly. Check the Firebase environment variables in Vercel.';
   }
-  return 'Google sign-in unavailable right now. Please continue as guest.';
+  if (code.includes('network-request-failed')) {
+    return 'Google sign-in could not reach Firebase. Check your internet connection and try again.';
+  }
+  return `Google sign-in failed (${code}). Please continue as guest for now.`;
 }
 
 function shouldUseRedirectSignIn(): boolean {
@@ -95,7 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
             localStorage.removeItem(AUTH_GUEST_KEY);
           })
-          .catch(() => undefined);
+          .catch((error) => {
+            localStorage.setItem(AUTH_REDIRECT_ERROR_KEY, googleSignInErrorMessage(getFirebaseErrorCode(error)));
+          });
 
         unsubscribe = onAuthStateChanged(services.auth, (user) => {
           if (user) {
@@ -121,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     const services = await getFirebaseServices();
     if (!services) {
-      throw new Error('Google sign-in unavailable, please continue as guest.');
+      throw new Error('Google sign-in is not configured. Add the VITE_FIREBASE_* environment variables in Vercel, then redeploy.');
     }
 
     try {
