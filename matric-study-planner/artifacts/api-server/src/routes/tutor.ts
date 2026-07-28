@@ -104,6 +104,15 @@ function getTutorTextModel(subject?: string): string {
   return isUrduSubject(subject) ? DEEP_TEXT_MODEL : FAST_TEXT_MODEL;
 }
 
+function getInstantTutorReply(message: string): string | null {
+  const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, "");
+  if (!/^(hi|hello|hey|salam|assalamualaikum|assalamu alaikum)$/.test(normalized)) {
+    return null;
+  }
+
+  return "Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.";
+}
+
 function getFileKind(file: Express.Multer.File): UploadedFileKind {
   const name = file.originalname.toLowerCase();
   if (["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) return "image";
@@ -183,6 +192,14 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
   if (!isStudyMode(currentMode)) {
     res.status(400).json({ error: "currentMode must be fun, balanced, or focus" });
     return;
+  }
+
+  if (!uploadedFile) {
+    const instantReply = getInstantTutorReply(trimmedMessage);
+    if (instantReply) {
+      res.json({ reply: instantReply });
+      return;
+    }
   }
 
   const apiKey = process.env["GROQ_API_KEY"];

@@ -71,6 +71,15 @@ function getAttachmentKind(file: File): PendingAttachment['kind'] {
   return file.type.startsWith('image/') ? 'image' : 'document';
 }
 
+function getInstantTutorReply(message: string): string | null {
+  const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, '');
+  if (!/^(hi|hello|hey|salam|assalamualaikum|assalamu alaikum)$/.test(normalized)) {
+    return null;
+  }
+
+  return 'Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.';
+}
+
 function createImageThumbnail(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -260,6 +269,16 @@ export default function AiTutor() {
     setDraft('');
     setPendingAttachment(null);
     setAttachmentError(null);
+
+    const instantReply = !attachment ? getInstantTutorReply(trimmed) : null;
+    if (instantReply) {
+      setTutorChatHistory([
+        ...optimisticHistory,
+        createMessage('assistant', instantReply),
+      ]);
+      return;
+    }
+
     setUploadProgress(attachment ? 5 : null);
     setIsSending(true);
 
@@ -464,7 +483,7 @@ export default function AiTutor() {
 
       <form
         onSubmit={handleSubmit}
-        className="fixed bottom-[84px] left-0 right-0 z-40 mx-auto max-w-[480px] border-t border-border bg-card p-4"
+        className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] left-0 right-0 z-40 mx-auto max-w-[480px] border-t border-border bg-card p-4"
       >
         <input
           ref={fileInputRef}

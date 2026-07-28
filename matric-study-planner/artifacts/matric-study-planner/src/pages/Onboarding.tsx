@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CalendarDays } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { BOARDS, SUBJECTS } from '@/data/syllabus';
 import { useAppContext } from '@/context/AppContext';
@@ -89,6 +90,16 @@ export default function Onboarding() {
     examDate
       ? Math.ceil((new Date(examDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
       : null;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minExamDate = tomorrow.toISOString().slice(0, 10);
+  const formattedExamDate = examDate
+    ? new Date(examDate).toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
 
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background flex flex-col relative shadow-[0_0_40px_rgba(0,0,0,0.05)]">
@@ -281,13 +292,31 @@ export default function Onboarding() {
               </h1>
 
               <div className="flex-1">
-                <input
-                  type="date"
-                  value={examDate}
-                  onChange={(e) => setExamDate(e.target.value)}
-                  data-testid="input-exam-date"
-                  className="w-full p-5 text-xl rounded-2xl border border-input bg-card shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground mb-6"
-                />
+                <label className="mb-3 block text-sm font-semibold text-muted-foreground">
+                  Exam date
+                </label>
+                <div className="relative mb-6">
+                  <div className="flex min-h-[64px] w-full items-center justify-between gap-3 rounded-2xl border border-input bg-card px-5 py-4 text-left shadow-sm">
+                    <div className="min-w-0">
+                      <p className={`text-lg font-bold ${examDate ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {formattedExamDate || 'Select exam date'}
+                      </p>
+                      <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                        Tap to open calendar
+                      </p>
+                    </div>
+                    <CalendarDays className="h-5 w-5 shrink-0 text-primary" />
+                  </div>
+                  <input
+                    type="date"
+                    value={examDate}
+                    min={minExamDate}
+                    onChange={(e) => setExamDate(e.target.value)}
+                    data-testid="input-exam-date"
+                    aria-label="Exam date"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </div>
 
                 <AnimatePresence>
                   {daysUntilExam !== null && examDate && daysUntilExam > 0 && (
@@ -312,7 +341,7 @@ export default function Onboarding() {
       </div>
 
       {/* Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent max-w-[480px] mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 bg-gradient-to-t from-background via-background to-transparent max-w-[480px] mx-auto">
         <AnimatePresence>
           {error && (
             <motion.p

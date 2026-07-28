@@ -1,5 +1,5 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
+import type { FirebaseApp } from 'firebase/app';
+import type { Auth, GoogleAuthProvider } from 'firebase/auth';
 
 interface FirebaseServices {
   app: FirebaseApp;
@@ -22,9 +22,14 @@ export const isFirebaseConfigured = Object.values(firebaseConfig).every(
 
 let services: FirebaseServices | null = null;
 
-export function getFirebaseServices(): FirebaseServices | null {
+export async function getFirebaseServices(): Promise<FirebaseServices | null> {
   if (!isFirebaseConfigured) return null;
   if (services) return services;
+
+  const [{ initializeApp }, { getAuth, GoogleAuthProvider }] = await Promise.all([
+    import('firebase/app'),
+    import('firebase/auth'),
+  ]);
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);

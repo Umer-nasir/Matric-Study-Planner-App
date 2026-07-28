@@ -7,12 +7,7 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
-import {
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-  type User,
-} from 'firebase/auth';
+import type { Unsubscribe, User } from 'firebase/auth';
 import { getFirebaseServices } from '@/lib/firebase';
 
 const AUTH_GUEST_KEY = 'matric_auth_guest';
@@ -57,37 +52,47 @@ function loadStoredUser(): AuthUser | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadStoredUser());
   const [isGuest, setIsGuest] = useState(() => localStorage.getItem(AUTH_GUEST_KEY) === 'true');
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
 
   useEffect(() => {
-    const services = getFirebaseServices();
-    if (!services) {
-      setLoading(false);
-      return undefined;
-    }
+    let cancelled = false;
+    let unsubscribe: Unsubscribe | undefined;
 
-    return onAuthStateChanged(services.auth, (user) => {
-      if (user) {
-        const authUser = toAuthUser(user);
-        setCurrentUser(authUser);
-        setIsGuest(false);
-        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
-        localStorage.removeItem(AUTH_GUEST_KEY);
-      } else {
-        setCurrentUser(null);
-        localStorage.removeItem(AUTH_USER_KEY);
-      }
-      setLoading(false);
-    });
+    void getFirebaseServices()
+      .then(async (services) => {
+        if (!services || cancelled) return;
+        const { onAuthStateChanged } = await import('firebase/auth');
+        if (cancelled) return;
+
+        unsubscribe = onAuthStateChanged(services.auth, (user) => {
+          if (user) {
+            const authUser = toAuthUser(user);
+            setCurrentUser(authUser);
+            setIsGuest(false);
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+            localStorage.removeItem(AUTH_GUEST_KEY);
+          } else if (!localStorage.getItem(AUTH_GUEST_KEY)) {
+            setCurrentUser(null);
+            localStorage.removeItem(AUTH_USER_KEY);
+          }
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const services = getFirebaseServices();
+    const services = await getFirebaseServices();
     if (!services) {
       throw new Error('Google sign-in unavailable, please continue as guest.');
     }
 
     try {
+      const { signInWithPopup } = await import('firebase/auth');
       const result = await signInWithPopup(services.auth, services.provider);
       const authUser = toAuthUser(result.user);
       setCurrentUser(authUser);
@@ -112,8 +117,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    const services = getFirebaseServices();
+    const services = await getFirebaseServices();
     if (services) {
+      const { signOut: firebaseSignOut } = await import('firebase/auth');
       await firebaseSignOut(services.auth).catch(() => undefined);
     }
     setCurrentUser(null);

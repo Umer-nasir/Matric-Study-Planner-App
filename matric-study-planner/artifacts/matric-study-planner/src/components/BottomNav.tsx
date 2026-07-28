@@ -15,7 +15,7 @@ export function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 pb-5 max-w-[480px] mx-auto shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 pb-[calc(1.25rem+env(safe-area-inset-bottom))] max-w-[480px] mx-auto shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
       <div className="flex items-center justify-around h-16 px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
