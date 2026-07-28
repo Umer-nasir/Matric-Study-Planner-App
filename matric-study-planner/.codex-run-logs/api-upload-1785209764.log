@@ -1,0 +1,52 @@
+[08:36:05.020] [32mINFO[39m (15960): [36mServer listening[39m
+    [35mport[39m: 5053
+[08:36:23.331] [32mINFO[39m (15960): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "POST",
+      "url": "/api/tutor-chat"
+    }
+    [35mres[39m: {
+      "statusCode": 400
+    }
+    [35mresponseTime[39m: 16
+[08:36:23.380] [32mINFO[39m (15960): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "POST",
+      "url": "/api/tutor-chat"
+    }
+    [35mres[39m: {
+      "statusCode": 415
+    }
+    [35mresponseTime[39m: 13
+[08:36:23.476] [32mINFO[39m (15960): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "POST",
+      "url": "/api/tutor-chat"
+    }
+    [35mres[39m: {
+      "statusCode": 413
+    }
+    [35mresponseTime[39m: 64
+[08:36:46.133] [32mINFO[39m (15960): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "POST",
+      "url": "/api/tutor-chat"
+    }
+    [35mres[39m: {
+      "statusCode": 400
+    }
+    [35mresponseTime[39m: 1
+[08:36:54.257] [32mINFO[39m (15960): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "POST",
+      "url": "/api/tutor-chat"
+    }
+    [35mres[39m: {
+      "statusCode": 415
+    }
+    [35mresponseTime[39m: 3

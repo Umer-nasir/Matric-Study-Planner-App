@@ -1,0 +1,61 @@
+Add an ADAPTIVE MODE SYSTEM to "Matric Study Planner" that switches the app's personality based on days remaining until the exam. This is a major feature — build it carefully.
+
+CONCEPT:
+- FUN MODE (exam is 30+ days away): app is playful, rewarding, encouraging exploration
+- FOCUS MODE (exam is within 14 days, or user is significantly behind schedule): app strips away distractions and becomes strict, minimal, deadline-driven
+
+Calculate mode automatically: 
+- daysLeft = examDate - today
+- if daysLeft > 30 → FUN MODE
+- if daysLeft between 14-30 → BALANCED MODE (mix of both, slightly more serious)
+- if daysLeft < 14 OR user's overall completion % is more than 20% behind the expected pace for days remaining → FOCUS MODE (force lockdown regardless of daysLeft)
+
+Store current mode in Context, recalculate on app load and whenever exam date or progress changes.
+
+--- FUN MODE FEATURES ---
+
+1. MILESTONES & BADGES
+Create /src/data/milestones.js with achievements like:
+- "First Chapter Done" (complete any 1 chapter)
+- "Subject Master" (complete 100% of any subject)
+- "Halfway Hero" (50% overall syllabus complete)
+- "7-Day Streak" (studied/checked something 7 days in a row)
+- "Early Bird" (completed a task before 9am, check timestamp)
+- "Comeback Kid" (returned after 3+ days of inactivity and completed a chapter)
+Store earned badges in localStorage. Show a celebratory modal/toast animation (confetti burst using canvas-confetti package, npm install canvas-confetti) when a badge is unlocked.
+
+2. STUDY STREAK COUNTER
+Track consecutive days the student has checked off at least one chapter. Show on Dashboard as a flame icon with streak count. Streak resets if a day is missed — show a gentle "don't break your streak!" reminder if they haven't studied today and it's evening.
+
+3. MINI CALENDAR / EVENTS VIEW
+New section on Dashboard: upcoming "events" pulled from a simple event list (school test dates, revision days, "free day" rewards). Let user add custom events (birthday, cricket match, family event) so the planner respects their real life, not just study. Display as a horizontal scrollable date-card list.
+
+4. REWARD SYSTEM ("Free Pass" / Break suggestions)
+If a student completes their full week's planned chapters ahead of schedule, show a friendly modal: "You're ahead of schedule! Take a well-deserved break today 🎉" — do NOT assign new tasks that day.
+
+5. LIGHT ENTERTAINMENT TOUCHES
+- Small motivational quote or fun fact rotates on Dashboard header (static array of ~20 short, student-appropriate quotes/facts — no external API needed)
+- Friendly mascot/character (simple SVG or emoji-based) that reacts to progress — happy when on track, neutral when behind (this can just be an emoji or simple illustrated icon, not complex art)
+- Subject cards in Fun Mode use slightly more color and playful icons
+
+--- FOCUS MODE FEATURES ---
+
+When FOCUS MODE is active:
+1. Hide milestones, badges, mascot, quotes, event calendar, and any "reward"/break suggestions completely
+2. Dashboard becomes minimal: just today's exact task list, countdown, and progress — bold, high-contrast, no decorative animation flourishes (keep functional micro-animations from before, remove celebratory/playful ones)
+3. Show a clear banner at top: "Focus Mode Active — [X] days left. Stay on track." with a strict, no-nonsense visual style (e.g. solid dark header, no confetti, no playful colors)
+4. Disable the "free pass" reward logic — even if ahead of schedule, Focus Mode assigns revision/practice tasks instead of suggesting breaks
+5. AI Tutor chat (if built) should shift its tone/system prompt to be more direct and exam-focused rather than casual, when in Focus Mode
+
+--- IMPLEMENTATION NOTES ---
+- Create a ModeContext or extend existing context to expose `currentMode` ('fun' | 'balanced' | 'focus') globally
+- Any component can read currentMode and conditionally render its "fun" elements
+- Add a visual mode indicator (small badge in header) so it's clear during a demo which mode is active — judges should be able to SEE this logic working, e.g. "🎯 Focus Mode" or "🎉 Fun Mode" label
+- For demo purposes, add a hidden dev toggle (small button in Profile tab, labeled "Simulate exam date" or similar) so during the hackathon demo you can quickly show both modes without waiting for real dates to pass
+
+DELIVERABLE:
+- Working mode detection based on exam date + progress pace
+- Full Fun Mode experience (milestones, streaks, events, rewards, light entertainment)
+- Full Focus Mode experience (stripped down, strict, deadline-driven)
+- Demo toggle to switch between modes instantly for testing/presentation
+- No console errors

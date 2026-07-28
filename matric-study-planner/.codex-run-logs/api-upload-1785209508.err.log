@@ -1,0 +1,17 @@
+Warning: Cannot load "@napi-rs/canvas" package: "Error: Cannot find module '@napi-rs/canvas'
+Require stack:
+- C:\Users\umern\Desktop\Replit\matric-study-planner\artifacts\api-server\dist\index.mjs".
+Warning: Cannot polyfill `DOMMatrix`, rendering may be broken.
+Warning: Cannot polyfill `ImageData`, rendering may be broken.
+Warning: Cannot polyfill `Path2D`, rendering may be broken.
+webpack://pdf.js/src/display/canvas.js:63
+const SCALE_MATRIX = new DOMMatrix();
+                     ^
+
+ReferenceError: DOMMatrix is not defined
+    at <anonymous> (webpack://pdf.js/src/display/canvas.js:63:22)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:633:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.16.0

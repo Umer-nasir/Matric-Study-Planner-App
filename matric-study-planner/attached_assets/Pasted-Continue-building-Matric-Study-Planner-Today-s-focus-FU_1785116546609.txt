@@ -1,0 +1,47 @@
+Continue building "Matric Study Planner". Today's focus: FULL DASHBOARD — replace all placeholder content from Day 1 with real, live data pulled from the Syllabus and Mode systems already built.
+
+CONTEXT: Syllabus tracker (chapters, checkboxes, per-subject progress) and Adaptive Mode System (Fun/Balanced/Focus) are already implemented. Dashboard currently has static placeholder cards — replace them entirely.
+
+TASK 1: EXAM COUNTDOWN HEADER
+- Calculate daysLeft from stored exam date (already in Context)
+- Display prominently at top: "X days until your exams" with animated number-in effect (already built in animation pass)
+- Include the mode indicator badge here too (🎯 Focus Mode / 🎉 Fun Mode / ⚖️ Balanced Mode) so it's visible immediately
+
+TASK 2: OVERALL PROGRESS RING
+- Circular progress component showing % of TOTAL chapters completed across ALL selected subjects (not per-subject — this is the big-picture number)
+- Calculate: (completed chapters across all subjects) / (total chapters across all subjects) × 100
+- Center of ring shows the percentage; ring animates fill on load/update (already built)
+- Below ring, small text: "X of Y chapters complete"
+
+TASK 3: TODAY'S TASK LIST (real logic, not placeholder)
+Build actual task-generation logic:
+- Pull incomplete chapters from each selected subject
+- Distribute across remaining days until exam, weighted so subjects with LESS progress get MORE frequent tasks (simple weighted round-robin is fine — no need for complex algorithm yet, full AI-generated scheduling comes Day 4)
+- Show today's assigned tasks as a checklist: subject name, chapter name, small checkbox
+- Checking a task here should sync back to the Syllabus tracker's data (same underlying state — mark that chapter as complete in the shared context)
+- If all today's tasks are done, show a completion state ("All done for today!" — celebratory in Fun Mode, plain confirmation in Focus Mode)
+
+TASK 4: SUBJECT QUICK-GLANCE ROW
+- Horizontal scrollable row of small cards, one per selected subject
+- Each shows subject icon, name, and mini progress bar/percentage
+- Tapping a card navigates to that subject's expanded view in the Syllabus tab
+
+TASK 5: STREAK + MILESTONE INTEGRATION (Fun/Balanced Mode only)
+- Show streak flame counter (already built in mode system) near the top
+- If a new milestone was just earned, surface it here too, not just as a one-time toast (small "Recent achievement" card)
+- Hide this entire section in Focus Mode per existing mode logic
+
+TASK 6: EMPTY / EDGE STATES
+- If user has completed 100% of everything: show a clear "You're fully prepared!" state instead of a task list
+- If exam date has passed: show a graceful "Exams complete" state instead of countdown
+
+DESIGN:
+- This is the FIRST screen judges see — prioritize visual hierarchy: countdown + mode badge at top, progress ring prominent, task list clearly actionable, subject row secondary
+- Keep consistent spacing/card style from previous days
+- Respect Focus Mode's stripped-down visual rules already implemented
+
+DELIVERABLE:
+- Dashboard fully replaces Day 1 placeholders with live, accurate data
+- Checking a task on Dashboard reflects instantly in Syllabus tab and vice versa (shared state, not duplicated)
+- Progress ring, countdown, and task list all update correctly as chapters are checked
+- No console errors, no broken sync between screens
