@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ModeIndicator } from '@/components/ModeIndicator';
 import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
+import { apiUrl } from '@/lib/api';
 import { rtlTextClass } from '@/lib/textDirection';
 
 type TutorApiMessage = {
@@ -103,7 +104,7 @@ function uploadTutorRequest(
 ): Promise<{ reply?: string; error?: string }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/tutor-chat');
+    xhr.open('POST', apiUrl('/api/tutor-chat'));
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         onProgress(Math.min(95, Math.round((event.loaded / event.total) * 90)));
@@ -282,7 +283,7 @@ export default function AiTutor() {
         if (profile?.board) formData.append('board', profile.board);
         data = await uploadTutorRequest(formData, setUploadProgress);
       } else {
-        const res = await fetch('/api/tutor-chat', {
+        const res = await fetch(apiUrl('/api/tutor-chat'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

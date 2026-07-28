@@ -29,6 +29,7 @@ import { SubjectIcon } from '@/components/SubjectIcon';
 import { useAppContext } from '@/context/AppContext';
 import type { PracticeAttempt } from '@/context/AppContext';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
+import { apiUrl } from '@/lib/api';
 import { rtlTextClass } from '@/lib/textDirection';
 
 type QuestionType = 'mcq' | 'short' | 'long' | 'definition';
@@ -455,7 +456,7 @@ export default function Practice() {
     setDefinitionError(null);
 
     try {
-      const res = await fetch('/api/generate-practice', {
+      const res = await fetch(apiUrl('/api/generate-practice'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -517,7 +518,7 @@ export default function Practice() {
     setQuizStartedAt(null);
 
     try {
-      const res = await fetch('/api/generate-practice', {
+      const res = await fetch(apiUrl('/api/generate-practice'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -576,7 +577,7 @@ export default function Practice() {
     setDefinitionError(null);
     setCheckingDefinitionKey(key);
     try {
-      const res = await fetch('/api/check-definition', {
+      const res = await fetch(apiUrl('/api/check-definition'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

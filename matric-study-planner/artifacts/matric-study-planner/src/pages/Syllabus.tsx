@@ -9,6 +9,7 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { Button } from '@/components/Button';
 import { SubjectIcon } from '@/components/SubjectIcon';
 import type { ChapterState } from '@/context/AppContext';
+import { apiUrl } from '@/lib/api';
 import { rtlTextClass } from '@/lib/textDirection';
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -286,7 +287,7 @@ export default function Syllabus() {
     if (refresh) setExplanation(null);
 
     try {
-      const res = await fetch('/api/explain-chapter', {
+      const res = await fetch(apiUrl('/api/explain-chapter'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

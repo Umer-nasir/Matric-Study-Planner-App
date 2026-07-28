@@ -17,6 +17,7 @@ import { useAppContext } from '@/context/AppContext';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import { getDailyQuote } from '@/data/quotes';
+import { apiUrl } from '@/lib/api';
 import type { ChapterCompletion, ChapterState, StudyMode } from '@/context/AppContext';
 import type { ScheduleDay } from '@/types/schedule';
 
@@ -524,7 +525,7 @@ export default function Dashboard() {
         };
       }).filter((subject) => subject.chapterList.length > 0);
 
-      const res = await fetch('/api/generate-schedule', {
+      const res = await fetch(apiUrl('/api/generate-schedule'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subjects, daysLeft, currentMode, studyHoursPerDay: 3 }),
