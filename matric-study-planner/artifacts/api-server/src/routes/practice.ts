@@ -52,6 +52,16 @@ function stripJson(raw: string): string {
   return cleaned;
 }
 
+function parseAiJson(rawContent: string): unknown {
+  const raw = stripJson(rawContent);
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    const repaired = raw.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+    return JSON.parse(repaired) as unknown;
+  }
+}
+
 function buildSystemPrompt({
   subject,
   chapter,
@@ -194,8 +204,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
       ],
     });
 
-    const raw = stripJson(completion.choices[0]?.message?.content ?? "");
-    const data = JSON.parse(raw) as unknown;
+    const data = parseAiJson(completion.choices[0]?.message?.content ?? "");
 
     if (!data || typeof data !== "object") {
       throw new Error("Practice response was not a JSON object");
@@ -270,8 +279,7 @@ router.post("/check-definition", async (req: Request, res: Response): Promise<vo
       ],
     });
 
-    const raw = stripJson(completion.choices[0]?.message?.content ?? "");
-    const data = JSON.parse(raw) as {
+    const data = parseAiJson(completion.choices[0]?.message?.content ?? "") as {
       correct?: unknown;
       feedback?: unknown;
       modelAnswer?: unknown;

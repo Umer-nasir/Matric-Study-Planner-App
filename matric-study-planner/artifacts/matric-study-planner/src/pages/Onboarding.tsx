@@ -296,17 +296,6 @@ export default function Onboarding() {
                   Exam date
                 </label>
                 <div className="relative mb-6">
-                  <div className="flex min-h-[64px] w-full items-center justify-between gap-3 rounded-2xl border border-input bg-card px-5 py-4 text-left shadow-sm">
-                    <div className="min-w-0">
-                      <p className={`text-lg font-bold ${examDate ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {formattedExamDate || 'Select exam date'}
-                      </p>
-                      <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                        Tap to open calendar
-                      </p>
-                    </div>
-                    <CalendarDays className="h-5 w-5 shrink-0 text-primary" />
-                  </div>
                   <input
                     type="date"
                     value={examDate}
@@ -314,8 +303,17 @@ export default function Onboarding() {
                     onChange={(e) => setExamDate(e.target.value)}
                     data-testid="input-exam-date"
                     aria-label="Exam date"
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    className="h-[74px] w-full cursor-pointer rounded-2xl border border-input bg-card px-5 text-transparent shadow-sm caret-transparent outline-none transition-colors focus:ring-2 focus:ring-primary"
                   />
+                  <div className="pointer-events-none absolute left-5 top-1/2 min-w-0 -translate-y-1/2 pr-12">
+                    <p className={`text-lg font-bold ${examDate ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {formattedExamDate || 'Select exam date'}
+                    </p>
+                    <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                      Tap to open calendar
+                    </p>
+                  </div>
+                  <CalendarDays className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
                 </div>
 
                 <AnimatePresence>

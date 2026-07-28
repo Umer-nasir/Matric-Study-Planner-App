@@ -92,12 +92,14 @@ function ProtectedRoutes() {
   const { currentUser, isGuest, loading } = useAuthContext();
   const [location, setLocation] = useLocation();
   const hasAuthEntry = Boolean(currentUser) || isGuest;
+  const normalizedLocation =
+    location.length > 1 && location.endsWith('/') ? location.replace(/\/+$/, '') : location;
 
   useEffect(() => {
     if (loading) return;
 
-    if (location.length > 1 && location.endsWith('/')) {
-      setLocation(location.replace(/\/+$/, ''));
+    if (normalizedLocation !== location) {
+      setLocation(normalizedLocation);
       return;
     }
 
@@ -119,7 +121,29 @@ function ProtectedRoutes() {
     if (profile?.onboardingComplete && (location === '/' || location === '/onboarding')) {
       setLocation('/dashboard');
     }
-  }, [hasAuthEntry, loading, profile, location, setLocation]);
+  }, [hasAuthEntry, loading, profile, location, normalizedLocation, setLocation]);
+
+  if (normalizedLocation === '/onboarding' && hasAuthEntry && !profile?.onboardingComplete) {
+    return (
+      <AnimatePresence mode="wait">
+        <Switch key="onboarding-direct-switch">
+          <Route path="/onboarding" component={OnboardingRoute} />
+          <Route component={OnboardingRoute} />
+        </Switch>
+      </AnimatePresence>
+    );
+  }
+
+  if (normalizedLocation === '/portal' && !hasAuthEntry) {
+    return (
+      <AnimatePresence mode="wait">
+        <Switch key="portal-direct-switch">
+          <Route path="/portal" component={PortalRoute} />
+          <Route component={PortalRoute} />
+        </Switch>
+      </AnimatePresence>
+    );
+  }
 
   if (loading) {
     return (

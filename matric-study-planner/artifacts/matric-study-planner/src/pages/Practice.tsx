@@ -475,7 +475,12 @@ export default function Practice() {
       }
       setPracticeSet(normalizePracticeSet(data.data));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Practice generation failed. Please try again.');
+      const message = err instanceof Error ? err.message : '';
+      setError(
+        message.toLowerCase().includes('json') || message.toLowerCase().includes('escaped')
+          ? 'The AI made a formatting mistake. Please try again.'
+          : message || 'Practice generation failed. Please try again.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -539,7 +544,12 @@ export default function Practice() {
       setQuizSet(normalizePracticeSet(data.data));
       setQuizStartedAt(Date.now());
     } catch (err) {
-      setQuizError(err instanceof Error ? err.message : 'Quiz generation failed. Please try again.');
+      const message = err instanceof Error ? err.message : '';
+      setQuizError(
+        message.toLowerCase().includes('json') || message.toLowerCase().includes('escaped')
+          ? 'The AI made a formatting mistake. Please try again.'
+          : message || 'Quiz generation failed. Please try again.',
+      );
     } finally {
       setQuizLoading(false);
     }
