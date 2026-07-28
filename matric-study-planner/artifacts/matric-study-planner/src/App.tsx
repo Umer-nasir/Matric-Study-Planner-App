@@ -1,7 +1,6 @@
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import NotFound from '@/pages/not-found';
 import { AppContextProvider, useAppContext } from '@/context/AppContext';
 import { AuthProvider, useAuthContext } from '@/context/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -74,6 +73,20 @@ function ProfileRoute() {
   return <AnimatedRoute component={Profile} />;
 }
 
+function MainFallbackRoute() {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setLocation('/dashboard');
+  }, [setLocation]);
+
+  return (
+    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center">
+      <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+    </div>
+  );
+}
+
 function ProtectedRoutes() {
   const { profile } = useAppContext();
   const { currentUser, isGuest, loading } = useAuthContext();
@@ -82,6 +95,11 @@ function ProtectedRoutes() {
 
   useEffect(() => {
     if (loading) return;
+
+    if (location.length > 1 && location.endsWith('/')) {
+      setLocation(location.replace(/\/+$/, ''));
+      return;
+    }
 
     if (!hasAuthEntry && location !== '/portal') {
       setLocation('/portal');
@@ -165,7 +183,7 @@ function ProtectedRoutes() {
             <Route path="/ai-tutor" component={AiTutorRoute} />
             <Route path="/practice" component={PracticeRoute} />
             <Route path="/profile" component={ProfileRoute} />
-            <Route component={NotFound} />
+            <Route component={MainFallbackRoute} />
           </Switch>
         </motion.div>
       </AnimatePresence>

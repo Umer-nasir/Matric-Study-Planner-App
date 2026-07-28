@@ -12,7 +12,8 @@ const pdfParse = require("pdf-parse") as typeof pdfParseType;
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_EXTRACTED_CHARS = 4000;
-const TEXT_MODEL = "llama-3.3-70b-versatile";
+const FAST_TEXT_MODEL = process.env["GROQ_TUTOR_FAST_MODEL"] ?? "llama-3.1-8b-instant";
+const DEEP_TEXT_MODEL = process.env["GROQ_TUTOR_DEEP_MODEL"] ?? "llama-3.3-70b-versatile";
 const VISION_MODEL = "qwen/qwen3.6-27b";
 
 const upload = multer({
@@ -97,6 +98,10 @@ ${
     ? "\nBe direct and efficient - this student is close to exams and needs quick, exam-relevant answers, not lengthy tangents."
     : ""
 }`;
+}
+
+function getTutorTextModel(subject?: string): string {
+  return isUrduSubject(subject) ? DEEP_TEXT_MODEL : FAST_TEXT_MODEL;
 }
 
 function getFileKind(file: Express.Multer.File): UploadedFileKind {
@@ -189,6 +194,7 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
   const groq = new Groq({ apiKey });
   const safeHistory = sanitizeHistory(conversationHistory);
   const safeSubject = getTextField(subject);
+  const textModel = getTutorTextModel(safeSubject);
   const systemPrompt = buildSystemPrompt({
     currentMode,
     subject: safeSubject,
@@ -254,9 +260,9 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
 
       const truncated = extracted.length > MAX_EXTRACTED_CHARS;
       const completion = await groq.chat.completions.create({
-        model: TEXT_MODEL,
+        model: textModel,
         temperature: currentMode === "focus" ? 0.2 : 0.45,
-        max_tokens: 650,
+        max_tokens: 550,
         messages: [
           { role: "system", content: systemPrompt },
           ...safeHistory,
@@ -279,9 +285,9 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     }
 
     const completion = await groq.chat.completions.create({
-      model: TEXT_MODEL,
+      model: textModel,
       temperature: currentMode === "focus" ? 0.2 : 0.45,
-      max_tokens: 500,
+      max_tokens: 350,
       messages: [
         { role: "system", content: systemPrompt },
         ...safeHistory,
@@ -292,7 +298,7 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     let reply = completion.choices[0]?.message?.content?.trim();
     if (reply && isUrduSubject(safeSubject) && hasInvalidUrduScript(reply)) {
       const corrected = await groq.chat.completions.create({
-        model: TEXT_MODEL,
+        model: DEEP_TEXT_MODEL,
         temperature: 0.15,
         max_tokens: 500,
         messages: [

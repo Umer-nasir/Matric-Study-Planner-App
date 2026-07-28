@@ -559,7 +559,7 @@ export default function AiTutor() {
               }
             }}
             rows={1}
-            placeholder={isFocus ? 'Ask an exam question...' : 'Ask anything about your subjects...'}
+            placeholder={isFocus ? 'Ask exam question...' : 'Ask a question...'}
             className="max-h-28 min-h-[44px] flex-1 resize-none rounded-2xl bg-secondary px-4 py-3 text-sm text-secondary-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             disabled={isSending}
           />
