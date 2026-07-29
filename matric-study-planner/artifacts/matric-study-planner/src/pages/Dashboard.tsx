@@ -18,6 +18,7 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import { getDailyQuote } from '@/data/quotes';
 import { apiUrl } from '@/lib/api';
+import { chapterDisplayName, subjectDirectionClass, subjectDisplayName, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
 import type { ChapterCompletion, ChapterState } from '@/context/AppContext';
 import type { ScheduleDay } from '@/types/schedule';
 
@@ -123,11 +124,13 @@ function WeeklyView({
   chapterCompletion,
   toggleChapter,
   isFocus,
+  subjectLanguages,
 }: {
   days: ScheduleDay[];
   chapterCompletion: ChapterCompletion;
   toggleChapter: (subject: string, chapter: string) => void;
   isFocus: boolean;
+  subjectLanguages?: Record<string, SubjectStudyLanguage>;
 }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [openDay, setOpenDay] = useState<string | null>(todayStr);
@@ -201,6 +204,8 @@ function WeeklyView({
                   <div className="border-t border-border divide-y divide-border">
                     {day.blocks.map((block, i) => {
                       const checked = getChapterState(chapterCompletion[block.subject]?.[block.chapter]).done;
+                      const displaySubject = subjectDisplayName(block.subject, subjectLanguages);
+                      const displayChapter = chapterDisplayName(block.subject, block.chapter, subjectLanguages);
                       return (
                         <div key={i} className="flex items-center gap-3 px-4 py-3">
                           <TaskCheckbox
@@ -209,13 +214,13 @@ function WeeklyView({
                             onToggle={() => toggleChapter(block.subject, block.chapter)}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium leading-snug ${
+                            <p className={`text-sm font-medium leading-snug ${subjectDirectionClass(block.subject, subjectLanguages)} ${
                               checked ? 'line-through text-muted-foreground' : 'text-foreground'
                             }`}>
-                              {block.chapter}
+                              {displayChapter}
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                              <span>{block.subject}</span>
+                              <span className={subjectDirectionClass(block.subject, subjectLanguages)}>{displaySubject}</span>
                               <span className="flex items-center gap-0.5">
                                 <Clock size={10} />
                                 {block.durationMinutes}m
@@ -245,6 +250,7 @@ function ChapterSelectionModal({
   onToggleChapter,
   onSetSubjectSelection,
   isGenerating,
+  subjectLanguages,
 }: {
   subjects: string[];
   chapterCompletion: ChapterCompletion;
@@ -254,6 +260,7 @@ function ChapterSelectionModal({
   onToggleChapter: (subject: string, chapter: string) => void;
   onSetSubjectSelection: (subject: string, selected: boolean) => void;
   isGenerating: boolean;
+  subjectLanguages?: Record<string, SubjectStudyLanguage>;
 }) {
   const [openSubject, setOpenSubject] = useState<string | null>(subjects[0] ?? null);
 
@@ -302,6 +309,7 @@ function ChapterSelectionModal({
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {subjects.map((subject) => {
+            const displaySubject = subjectDisplayName(subject, subjectLanguages);
             const incomplete = (SYLLABUS_DATA[subject] ?? []).filter(
               (chapter) => !getChapterState(chapterCompletion[subject]?.[chapter]).done,
             );
@@ -322,7 +330,9 @@ function ChapterSelectionModal({
                     <SubjectIcon subject={subject} className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-foreground">{subject}</span>
+                    <span className={`block truncate text-sm font-bold text-foreground ${subjectDirectionClass(subject, subjectLanguages)}`}>
+                      {displaySubject}
+                    </span>
                     <span className="text-xs text-muted-foreground">
                       {selectedInSubject}/{incomplete.length} selected
                     </span>
@@ -370,6 +380,7 @@ function ChapterSelectionModal({
                                 const selected = getChapterState(
                                   chapterCompletion[subject]?.[chapter],
                                 ).selectedForSchedule;
+                                const displayChapter = chapterDisplayName(subject, chapter, subjectLanguages);
                                 return (
                                   <button
                                     key={chapter}
@@ -387,8 +398,8 @@ function ChapterSelectionModal({
                                     >
                                       <CalendarCheck size={16} />
                                     </span>
-                                    <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-                                      {chapter}
+                                    <span className={`min-w-0 flex-1 text-sm font-medium text-foreground ${subjectDirectionClass(subject, subjectLanguages)}`}>
+                                      {displayChapter}
                                     </span>
                                   </button>
                                 );
@@ -822,6 +833,8 @@ export default function Dashboard() {
                     <Card className="divide-y divide-border p-0 overflow-hidden" noTap>
                       {todaysTasks.map(({ subject, chapter, durationMinutes }, idx) => {
                         const checked = getChapterState(chapterCompletion[subject]?.[chapter]).done;
+                        const displaySubject = subjectDisplayName(subject, profile.subjectLanguages);
+                        const displayChapter = chapterDisplayName(subject, chapter, profile.subjectLanguages);
                         return (
                           <motion.div
                             key={`${subject}__${chapter}`}
@@ -831,13 +844,13 @@ export default function Dashboard() {
                           >
                             <TaskCheckbox checked={checked} subject={subject} onToggle={() => toggleChapter(subject, chapter)} />
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium leading-snug transition-colors duration-200 ${
+                              <p className={`text-sm font-medium leading-snug transition-colors duration-200 ${subjectDirectionClass(subject, profile.subjectLanguages)} ${
                                 checked ? 'line-through text-muted-foreground' : 'text-foreground'
                               }`}>
-                                {chapter}
+                                {displayChapter}
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                                <span>{subject}</span>
+                                <span className={subjectDirectionClass(subject, profile.subjectLanguages)}>{displaySubject}</span>
                                 {durationMinutes && (
                                   <span className="flex items-center gap-0.5">
                                     <Clock size={10} />
@@ -888,6 +901,7 @@ export default function Dashboard() {
                             chapterCompletion={chapterCompletion}
                             toggleChapter={toggleChapter}
                             isFocus={isFocus}
+                            subjectLanguages={profile.subjectLanguages}
                           />
                         </motion.div>
                       )}
@@ -911,7 +925,9 @@ export default function Dashboard() {
                         <div className="mb-1.5 flex h-6 items-center text-xl">
                           <SubjectIcon subject={subject} className="h-5 w-5" />
                         </div>
-                        <p className="text-xs font-semibold text-foreground leading-snug truncate mb-1.5">{subject}</p>
+                        <p className={`text-xs font-semibold text-foreground leading-snug truncate mb-1.5 ${subjectDirectionClass(subject, profile.subjectLanguages)}`}>
+                          {subjectDisplayName(subject, profile.subjectLanguages)}
+                        </p>
                         <ProgressBar percentage={pct} height="h-1.5" />
                         <p className="text-[10px] text-muted-foreground mt-1 font-medium">{done}/{total} · {pct}%</p>
                       </motion.button>
@@ -975,6 +991,7 @@ export default function Dashboard() {
             onToggleChapter={toggleChapterScheduleSelection}
             onSetSubjectSelection={setSubjectScheduleSelection}
             isGenerating={isLoadingSchedule}
+            subjectLanguages={profile.subjectLanguages}
           />
         )}
       </AnimatePresence>

@@ -3,9 +3,11 @@ import { test } from 'node:test';
 
 import {
   canChooseSubjectLanguage,
+  chapterDisplayName,
   defaultSubjectLanguage,
   getSubjectStudyLanguage,
   normalizeSubjectLanguages,
+  subjectDisplayName,
 } from '../artifacts/matric-study-planner/src/lib/subjectLanguage.ts';
 
 test('keeps English and Urdu subjects fixed to their own response languages', () => {
@@ -36,4 +38,16 @@ test('uses subject defaults when a preference is missing', () => {
   assert.equal(defaultSubjectLanguage('Physics'), 'english');
   assert.equal(defaultSubjectLanguage('Islamiat'), 'urdu');
   assert.equal(getSubjectStudyLanguage('Chemistry', {}), 'english');
+});
+
+test('localizes display names only for Urdu-selected subjects', () => {
+  const languages = {
+    Physics: 'urdu',
+    Mathematics: 'english',
+  } as const;
+
+  assert.equal(subjectDisplayName('Physics', languages), 'طبیعیات');
+  assert.equal(chapterDisplayName('Physics', 'Measurements', languages), 'پیمائش');
+  assert.equal(subjectDisplayName('Mathematics', languages), 'Mathematics');
+  assert.equal(chapterDisplayName('Mathematics', 'Logarithms', languages), 'Logarithms');
 });

@@ -14,6 +14,7 @@ const AUTH_GUEST_KEY = 'matric_auth_guest';
 const AUTH_USER_KEY = 'matric_auth_user';
 const AUTH_REDIRECT_ERROR_KEY = 'matric_auth_redirect_error';
 const AUTH_SIGNING_OUT_KEY = 'matric_auth_signing_out';
+const AUTH_REDIRECT_PENDING_KEY = 'matric_auth_redirect_pending';
 
 export interface AuthUser {
   uid: string;
@@ -51,6 +52,22 @@ function loadStoredUser(): AuthUser | null {
   }
 }
 
+function setLocalStorageItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`Could not save ${key} to localStorage.`, error);
+  }
+}
+
+function removeLocalStorageItem(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore storage cleanup failures; auth state in memory is the source of truth for this session.
+  }
+}
+
 function getFirebaseErrorCode(error: unknown): string {
   return typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
 }
@@ -74,11 +91,6 @@ function googleSignInErrorMessage(code: string): string {
   return `Google sign-in failed (${code}). Please continue as guest for now.`;
 }
 
-function shouldUseRedirectSignIn(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia?.('(max-width: 768px)').matches ?? false;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadStoredUser());
   const [isGuest, setIsGuest] = useState(() => localStorage.getItem(AUTH_GUEST_KEY) === 'true');
@@ -96,15 +108,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         getRedirectResult(services.auth)
           .then((result) => {
+            removeLocalStorageItem(AUTH_REDIRECT_PENDING_KEY);
             if (!result || cancelled) return;
             const authUser = toAuthUser(result.user);
             setCurrentUser(authUser);
             setIsGuest(false);
-            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
-            localStorage.removeItem(AUTH_GUEST_KEY);
+            setLocalStorageItem(AUTH_USER_KEY, JSON.stringify(authUser));
+            removeLocalStorageItem(AUTH_GUEST_KEY);
           })
           .catch((error) => {
-            localStorage.setItem(AUTH_REDIRECT_ERROR_KEY, googleSignInErrorMessage(getFirebaseErrorCode(error)));
+            removeLocalStorageItem(AUTH_REDIRECT_PENDING_KEY);
+            setLocalStorageItem(AUTH_REDIRECT_ERROR_KEY, googleSignInErrorMessage(getFirebaseErrorCode(error)));
           });
 
         unsubscribe = onAuthStateChanged(services.auth, (user) => {
@@ -115,11 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const authUser = toAuthUser(user);
             setCurrentUser(authUser);
             setIsGuest(false);
-            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
-            localStorage.removeItem(AUTH_GUEST_KEY);
+            setLocalStorageItem(AUTH_USER_KEY, JSON.stringify(authUser));
+            removeLocalStorageItem(AUTH_GUEST_KEY);
           } else if (!localStorage.getItem(AUTH_GUEST_KEY)) {
             setCurrentUser(null);
-            localStorage.removeItem(AUTH_USER_KEY);
+            removeLocalStorageItem(AUTH_USER_KEY);
           }
         });
       })
@@ -139,17 +153,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
-      if (shouldUseRedirectSignIn()) {
-        await signInWithRedirect(services.auth, services.provider);
-        return;
-      }
-
+      removeLocalStorageItem(AUTH_REDIRECT_PENDING_KEY);
       const result = await signInWithPopup(services.auth, services.provider);
       const authUser = toAuthUser(result.user);
       setCurrentUser(authUser);
       setIsGuest(false);
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
-      localStorage.removeItem(AUTH_GUEST_KEY);
+      setLocalStorageItem(AUTH_USER_KEY, JSON.stringify(authUser));
+      removeLocalStorageItem(AUTH_GUEST_KEY);
     } catch (error) {
       const code = getFirebaseErrorCode(error);
       if (code.includes('popup-closed-by-user') || code.includes('cancelled-popup-request')) {
@@ -157,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (code.includes('popup-blocked') || code.includes('operation-not-supported-in-this-environment')) {
         const { signInWithRedirect } = await import('firebase/auth');
+        setLocalStorageItem(AUTH_REDIRECT_PENDING_KEY, String(Date.now()));
         await signInWithRedirect(services.auth, services.provider);
         return;
       }
@@ -168,16 +179,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Intentional hackathon scope: auth personalizes entry only; study data remains localStorage-only for both Google and Guest users.
     setIsGuest(true);
     setCurrentUser(null);
-    localStorage.setItem(AUTH_GUEST_KEY, 'true');
-    localStorage.removeItem(AUTH_USER_KEY);
+    setLocalStorageItem(AUTH_GUEST_KEY, 'true');
+    removeLocalStorageItem(AUTH_USER_KEY);
   }, []);
 
   const signOut = useCallback(async () => {
     sessionStorage.setItem(AUTH_SIGNING_OUT_KEY, 'true');
     setCurrentUser(null);
     setIsGuest(false);
-    localStorage.removeItem(AUTH_USER_KEY);
-    localStorage.removeItem(AUTH_GUEST_KEY);
+    removeLocalStorageItem(AUTH_USER_KEY);
+    removeLocalStorageItem(AUTH_GUEST_KEY);
 
     const services = await getFirebaseServices();
     if (services) {

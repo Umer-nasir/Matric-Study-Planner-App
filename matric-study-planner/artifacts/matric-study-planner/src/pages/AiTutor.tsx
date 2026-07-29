@@ -5,7 +5,11 @@ import { ModeIndicator } from '@/components/ModeIndicator';
 import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
-import { getSubjectStudyLanguage } from '@/lib/subjectLanguage';
+import {
+  getSubjectStudyLanguage,
+  subjectDisplayName,
+  subjectStarterQuestions,
+} from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
 
 type TutorApiMessage = {
@@ -29,12 +33,6 @@ const ACCEPTED_ATTACHMENT_TYPES = [
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
-
-const STARTER_QUESTIONS = [
-  'Explain photosynthesis',
-  "What is Newton's second law?",
-  'How do I revise algebra?',
 ];
 
 function createMessage(
@@ -72,12 +70,15 @@ function getAttachmentKind(file: File): PendingAttachment['kind'] {
   return file.type.startsWith('image/') ? 'image' : 'document';
 }
 
-function getInstantTutorReply(message: string): string | null {
+function getInstantTutorReply(message: string, responseLanguage?: 'english' | 'urdu'): string | null {
   const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, '');
   if (!/^(hi|hello|hey|salam|assalamualaikum|assalamu alaikum)$/.test(normalized)) {
     return null;
   }
 
+  if (responseLanguage === 'urdu') {
+    return 'السلام علیکم! اپنا میٹرک کا سوال بھیجیں، میں آسان اور امتحانی انداز میں جواب دوں گا۔';
+  }
   return 'Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.';
 }
 
@@ -236,6 +237,10 @@ export default function AiTutor() {
     () => ['General', ...(profile?.subjects ?? [])],
     [profile?.subjects],
   );
+  const starterQuestions = useMemo(
+    () => subjectStarterQuestions(selectedSubject, profile?.subjectLanguages),
+    [profile?.subjectLanguages, selectedSubject],
+  );
 
   useEffect(() => {
     if (!subjectOptions.includes(selectedSubject)) {
@@ -270,7 +275,9 @@ export default function AiTutor() {
     setPendingAttachment(null);
     setAttachmentError(null);
 
-    const instantReply = !attachment ? getInstantTutorReply(trimmed) : null;
+    const responseLanguage =
+      selectedSubject === 'General' ? undefined : getSubjectStudyLanguage(selectedSubject, profile?.subjectLanguages);
+    const instantReply = !attachment ? getInstantTutorReply(trimmed, responseLanguage) : null;
     if (instantReply) {
       setTutorChatHistory([
         ...optimisticHistory,
@@ -291,9 +298,6 @@ export default function AiTutor() {
 
     try {
       let data: { reply?: string; error?: string };
-      const responseLanguage =
-        selectedSubject === 'General' ? undefined : getSubjectStudyLanguage(selectedSubject, profile?.subjectLanguages);
-
       if (attachment) {
         const formData = new FormData();
         formData.append('message', trimmed);
@@ -411,7 +415,7 @@ export default function AiTutor() {
             >
               {subjectOptions.map((subject) => (
                 <option key={subject} value={subject}>
-                  {subject}
+                  {subject === 'General' ? 'General' : subjectDisplayName(subject, profile?.subjectLanguages)}
                 </option>
               ))}
             </select>
@@ -459,7 +463,7 @@ export default function AiTutor() {
 
             {!isFocus && (
               <div className="mt-5 flex flex-wrap justify-center gap-2">
-                {STARTER_QUESTIONS.map((question) => (
+                {starterQuestions.map((question) => (
                   <button
                     key={question}
                     type="button"

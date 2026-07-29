@@ -174,7 +174,11 @@ function loadJSON<T>(key: string, fallback: T): T {
 }
 
 function saveJSON<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Could not save ${key} to localStorage. The app will keep running.`, error);
+  }
 }
 
 // ─── Progress helpers ─────────────────────────────────────────────────────────
@@ -635,7 +639,13 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     [events],
   );
 
-  if (!isLoaded) return null;
+  if (!isLoaded) {
+    return (
+      <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <AppContext.Provider

@@ -16,6 +16,7 @@ interface PracticeTarget {
   subject?: string;
   chapter?: string;
   reason?: string;
+  responseLanguage?: string;
 }
 
 interface PracticeRequestBody {
@@ -85,13 +86,22 @@ function buildSystemPrompt({
   chapter: string;
   board: string;
   mode: PracticeMode;
-  targets: Array<{ subject: string; chapter: string; reason?: string }>;
+  targets: Array<{ subject: string; chapter: string; reason?: string; responseLanguage?: string }>;
   totalQuestions?: number;
   responseLanguage: ResponseLanguage;
 }): string {
   const targetText =
     targets.length > 1
-      ? targets.map((target) => `- ${target.subject}: ${target.chapter}`).join("\n")
+      ? targets
+          .map((target) => {
+            const targetLanguage = normalizeResponseLanguage(target.responseLanguage, target.subject);
+            const languageNote =
+              targetLanguage === "urdu"
+                ? "write this target's questions and explanations in Urdu"
+                : "write this target's questions and explanations in English";
+            return `- ${target.subject}: ${target.chapter} (${languageNote})`;
+          })
+          .join("\n")
       : `- ${subject}: ${chapter}`;
   const distribution =
     targets.length > 1
@@ -152,6 +162,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             subject: item.subject!.trim(),
             chapter: item.chapter!.trim(),
             reason: typeof item.reason === "string" ? item.reason.trim() : undefined,
+            responseLanguage: typeof item.responseLanguage === "string" ? item.responseLanguage.trim() : undefined,
           }))
       : subject && chapter
       ? [{ subject: subject.trim(), chapter: chapter.trim() }]

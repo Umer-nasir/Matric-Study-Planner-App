@@ -10,7 +10,13 @@ import { Button } from '@/components/Button';
 import { SubjectIcon } from '@/components/SubjectIcon';
 import type { ChapterState } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
-import { getSubjectStudyLanguage, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
+import {
+  chapterDisplayName,
+  getSubjectStudyLanguage,
+  subjectDirectionClass,
+  subjectDisplayName,
+  type SubjectStudyLanguage,
+} from '@/lib/subjectLanguage';
 import { containsUrduScript, rtlTextClass } from '@/lib/textDirection';
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -83,6 +89,7 @@ interface SubjectCardProps {
   onToggle: (chapter: string) => void;
   onExplain: (subject: string, chapter: string) => void;
   needsPractice: Set<string>;
+  subjectLanguages?: Record<string, SubjectStudyLanguage>;
 }
 
 interface ChapterExplanation {
@@ -117,8 +124,9 @@ function loadCachedExplanation(subject: string, chapter: string, language: Subje
   }
 }
 
-function SubjectCard({ subject, chapters, completion, onToggle, onExplain, needsPractice }: SubjectCardProps) {
+function SubjectCard({ subject, chapters, completion, onToggle, onExplain, needsPractice, subjectLanguages }: SubjectCardProps) {
   const [open, setOpen] = useState(false);
+  const displaySubject = subjectDisplayName(subject, subjectLanguages);
 
   const done = chapters.filter((ch) => completion[ch]?.done).length;
   const total = chapters.length;
@@ -143,7 +151,9 @@ function SubjectCard({ subject, chapters, completion, onToggle, onExplain, needs
         {/* Name + progress */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <span className="font-semibold text-foreground truncate">{subject}</span>
+            <span className={`font-semibold text-foreground truncate ${subjectDirectionClass(subject, subjectLanguages)}`}>
+              {displaySubject}
+            </span>
             <span className="text-xs font-bold text-muted-foreground whitespace-nowrap flex-shrink-0">
               {done}/{total} · {pct}%
             </span>
@@ -176,6 +186,7 @@ function SubjectCard({ subject, chapters, completion, onToggle, onExplain, needs
               {chapters.map((chapter) => {
                 const chapterState = completion[chapter] ?? { done: false, selectedForSchedule: true };
                 const isChecked = chapterState.done;
+                const displayChapter = chapterDisplayName(subject, chapter, subjectLanguages);
                 return (
                   <div
                     key={chapter}
@@ -189,17 +200,17 @@ function SubjectCard({ subject, chapters, completion, onToggle, onExplain, needs
                       type="button"
                       onClick={() => onExplain(subject, chapter)}
                       className="flex min-h-[44px] min-w-0 flex-1 items-center justify-between gap-3 rounded-2xl px-2 py-1 text-left transition-colors active:bg-secondary"
-                      aria-label={`Open explanation for ${chapter}`}
+                      aria-label={`Open explanation for ${displayChapter}`}
                     >
                       <div className="min-w-0 flex-1">
                         <span
-                          className={`text-sm font-semibold leading-snug transition-colors duration-200 ${
+                          className={`text-sm font-semibold leading-snug transition-colors duration-200 ${subjectDirectionClass(subject, subjectLanguages)} ${
                             isChecked
                               ? 'line-through text-muted-foreground'
                               : 'text-foreground underline decoration-primary/25 underline-offset-4'
                           }`}
                         >
-                          {chapter}
+                          {displayChapter}
                         </span>
                         {!isChecked && chapterState.selectedForSchedule && (
                           <span className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-primary">
@@ -381,6 +392,7 @@ export default function Syllabus() {
               onToggle={(chapter) => toggleChapter(subject, chapter)}
               onExplain={openExplanation}
               needsPractice={lowScoreChapters[subject] ?? new Set()}
+              subjectLanguages={profile.subjectLanguages}
             />
           ))}
         </div>
@@ -404,10 +416,10 @@ export default function Syllabus() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    {selectedChapter.subject}
+                    {subjectDisplayName(selectedChapter.subject, profile.subjectLanguages)}
                   </p>
-                  <h2 className="mt-1 text-xl font-black leading-tight text-foreground">
-                    {selectedChapter.chapter}
+                  <h2 className={`mt-1 text-xl font-black leading-tight text-foreground ${subjectDirectionClass(selectedChapter.subject, profile.subjectLanguages)}`}>
+                    {chapterDisplayName(selectedChapter.subject, selectedChapter.chapter, profile.subjectLanguages)}
                   </h2>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

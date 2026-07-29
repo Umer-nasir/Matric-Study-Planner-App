@@ -39,6 +39,8 @@ import {
   canChooseSubjectLanguage,
   defaultSubjectLanguage,
   normalizeSubjectLanguages,
+  subjectDirectionClass,
+  subjectDisplayName,
   type SubjectStudyLanguage,
 } from '@/lib/subjectLanguage';
 
@@ -348,6 +350,7 @@ export default function Profile() {
             <div className="grid grid-cols-2 gap-2">
               {SUBJECTS.map((subject) => {
                 const selected = draftSubjects.includes(subject);
+                const displayName = subjectDisplayName(subject, draftSubjectLanguages);
                 return (
                   <button
                     key={subject}
@@ -361,7 +364,9 @@ export default function Profile() {
                     }`}
                   >
                     <SubjectIcon subject={subject} className="mr-1.5 inline-flex h-4 w-4 align-[-2px]" />
-                    {subject}
+                    <span className={subjectDirectionClass(subject, draftSubjectLanguages)}>
+                      {displayName}
+                    </span>
                   </button>
                 );
               })}
@@ -376,12 +381,15 @@ export default function Profile() {
               <div className="space-y-2">
                 {draftSubjects.filter(canChooseSubjectLanguage).map((subject) => {
                   const language = draftSubjectLanguages[subject] ?? defaultSubjectLanguage(subject);
+                  const displayName = subjectDisplayName(subject, draftSubjectLanguages);
                   return (
                     <div
                       key={subject}
                       className="rounded-2xl border border-border bg-background p-3"
                     >
-                      <p className="mb-2 text-sm font-bold text-foreground">{subject}</p>
+                      <p className={`mb-2 text-sm font-bold text-foreground ${subjectDirectionClass(subject, draftSubjectLanguages)}`}>
+                        {displayName}
+                      </p>
                       <div className="grid grid-cols-2 gap-2">
                         {(['english', 'urdu'] as const).map((option) => {
                           const selected = language === option;

@@ -7,6 +7,9 @@ import { GoogleIcon } from '@/components/GoogleIcon';
 import { useAuthContext } from '@/context/AuthContext';
 
 const AUTH_REDIRECT_ERROR_KEY = 'matric_auth_redirect_error';
+const AUTH_REDIRECT_PENDING_KEY = 'matric_auth_redirect_pending';
+const AUTH_REDIRECT_AUTO_RELOAD_KEY = 'matric_auth_redirect_auto_reloaded';
+const GOOGLE_OPEN_TIMEOUT_MS = 15000;
 
 export default function Portal() {
   const { signInWithGoogle, continueAsGuest } = useAuthContext();
@@ -15,16 +18,37 @@ export default function Portal() {
 
   useEffect(() => {
     const redirectError = localStorage.getItem(AUTH_REDIRECT_ERROR_KEY);
-    if (!redirectError) return;
-    setError(redirectError);
-    localStorage.removeItem(AUTH_REDIRECT_ERROR_KEY);
+    if (redirectError) {
+      setError(redirectError);
+      localStorage.removeItem(AUTH_REDIRECT_ERROR_KEY);
+    }
+
+    const pendingStartedAt = Number(localStorage.getItem(AUTH_REDIRECT_PENDING_KEY) ?? 0);
+    if (pendingStartedAt && Date.now() - pendingStartedAt > GOOGLE_OPEN_TIMEOUT_MS) {
+      localStorage.removeItem(AUTH_REDIRECT_PENDING_KEY);
+      if (sessionStorage.getItem(AUTH_REDIRECT_AUTO_RELOAD_KEY) !== 'true') {
+        sessionStorage.setItem(AUTH_REDIRECT_AUTO_RELOAD_KEY, 'true');
+        window.setTimeout(() => window.location.reload(), 500);
+        return;
+      }
+      setError('Google sign-in did not finish. Please try again, or continue as guest for now.');
+    }
   }, []);
 
   async function handleGoogleSignIn() {
     setError(null);
+    sessionStorage.removeItem(AUTH_REDIRECT_AUTO_RELOAD_KEY);
     setIsSigningIn(true);
     try {
-      await signInWithGoogle();
+      await Promise.race([
+        signInWithGoogle(),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(
+            () => reject(new Error('Google sign-in is taking too long. Please try again, or continue as guest.')),
+            GOOGLE_OPEN_TIMEOUT_MS,
+          );
+        }),
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google sign-in unavailable, please continue as guest.');
     } finally {

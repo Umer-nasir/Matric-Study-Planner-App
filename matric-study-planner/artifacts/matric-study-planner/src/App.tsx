@@ -13,6 +13,7 @@ import Syllabus from '@/pages/Syllabus';
 import AiTutor from '@/pages/AiTutor';
 import Practice from '@/pages/Practice';
 import Profile from '@/pages/Profile';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { BottomNav } from '@/components/BottomNav';
 import { BadgeModal } from '@/components/BadgeModal';
 
@@ -227,9 +228,11 @@ function App() {
     <AuthProvider>
       <AppContextProvider>
         <TooltipProvider>
-          <AppContent />
-          <BadgeModal />
-          <Toaster />
+          <AppErrorBoundary>
+            <AppContent />
+            <BadgeModal />
+            <Toaster />
+          </AppErrorBoundary>
         </TooltipProvider>
       </AppContextProvider>
     </AuthProvider>

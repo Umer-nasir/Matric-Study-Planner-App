@@ -30,13 +30,18 @@ import { useAppContext } from '@/context/AppContext';
 import type { PracticeAttempt } from '@/context/AppContext';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
-import { getSubjectStudyLanguage } from '@/lib/subjectLanguage';
+import {
+  chapterDisplayName,
+  getSubjectStudyLanguage,
+  subjectDirectionClass,
+  subjectDisplayName,
+} from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
 
 type QuestionType = 'mcq' | 'short' | 'long' | 'definition';
 type PracticeMode = 'chapter' | 'quiz' | 'revision';
 type PracticeAttemptType = 'chapter' | 'quiz' | 'revision';
-type ChapterTarget = { subject: string; chapter: string; reason?: string };
+type ChapterTarget = { subject: string; chapter: string; reason?: string; responseLanguage?: 'english' | 'urdu' };
 
 type PracticeSet = {
   mcqs?: Array<{
@@ -257,6 +262,11 @@ export default function Practice() {
     const selected = new Set(quizSelectedKeys);
     return quizChapterTargets.filter((target) => selected.has(targetKey(target)));
   }, [quizChapterTargets, quizSelectedKeys]);
+  const withTargetLanguages = (targets: ChapterTarget[]) =>
+    targets.map((target) => ({
+      ...target,
+      responseLanguage: getSubjectStudyLanguage(target.subject, profile?.subjectLanguages),
+    }));
   const revisionItems = useMemo<ChapterTarget[]>(() => {
     const latestByChapter = new Map<string, PracticeAttempt>();
     for (const attempt of practiceHistory) {
@@ -438,7 +448,8 @@ export default function Practice() {
     if (overrides?.chapter) setChapter(overrides.chapter);
     setActiveSessionType(overrides?.type ?? 'chapter');
     setActiveRevisionReasons(overrides?.revisionReasons ?? []);
-    setActiveTargets(overrides?.targets ?? [{ subject: targetSubject, chapter: targetChapter }]);
+    const requestTargets = withTargetLanguages(overrides?.targets ?? [{ subject: targetSubject, chapter: targetChapter }]);
+    setActiveTargets(requestTargets);
     setActiveAttemptSubject(overrides?.type === 'revision' ? 'Targeted Revision' : targetSubject);
     setActiveAttemptChapter(overrides?.type === 'revision' ? `${overrides.targets?.length ?? 1} chapters` : targetChapter);
     setIsLoading(true);
@@ -463,7 +474,7 @@ export default function Practice() {
           questionTypes: targetQuestionTypes,
           countPerType,
           mode: overrides?.type ?? 'chapter',
-          chapters: overrides?.targets,
+          chapters: requestTargets,
         }),
       });
       const data = (await res.json()) as { ok: boolean; data?: unknown; error?: string };
@@ -529,7 +540,7 @@ export default function Practice() {
           board: profile.board,
           responseLanguage: quizSubject === 'All Subjects' ? undefined : getSubjectStudyLanguage(quizSubject, profile.subjectLanguages),
           mode: 'quiz',
-          chapters: selectedQuizTargets,
+          chapters: withTargetLanguages(selectedQuizTargets),
           questionTypes: ['mcq'],
           countPerType: quizLength,
           totalQuestions: quizLength,
@@ -637,6 +648,14 @@ export default function Practice() {
   const currentDefinitionCheck = currentDefinitionKey
     ? definitionChecks[currentDefinitionKey]
     : undefined;
+  const labelSubject = (item: string) =>
+    item === 'All Subjects' || item === 'Targeted Revision' ? item : subjectDisplayName(item, profile.subjectLanguages);
+  const labelChapter = (itemSubject: string, itemChapter: string) =>
+    itemChapter === 'Mixed quiz' || itemChapter === 'Selected chapters quiz' || itemChapter === 'Targeted Revision'
+      ? itemChapter
+      : chapterDisplayName(itemSubject, itemChapter, profile.subjectLanguages);
+  const labelTarget = (target: ChapterTarget) =>
+    `${labelSubject(target.subject)} - ${labelChapter(target.subject, target.chapter)}`;
 
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background pb-28 shadow-[0_0_40px_rgba(0,0,0,0.05)]">
@@ -701,7 +720,9 @@ export default function Practice() {
                   }`}
                 >
                   <SubjectIcon subject={item} className="h-5 w-5 text-xl" />
-                  <span className="mt-1 block truncate text-sm font-bold">{item}</span>
+                  <span className={`mt-1 block truncate text-sm font-bold ${subjectDirectionClass(item, profile.subjectLanguages)}`}>
+                    {labelSubject(item)}
+                  </span>
                 </motion.button>
               );
             })}
@@ -715,7 +736,9 @@ export default function Practice() {
             >
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Chapter</p>
-                <p className="truncate text-sm font-bold text-foreground">{chapter || 'Select a chapter'}</p>
+                <p className={`truncate text-sm font-bold text-foreground ${subjectDirectionClass(subject, profile.subjectLanguages)}`}>
+                  {chapter ? labelChapter(subject, chapter) : 'Select a chapter'}
+                </p>
               </div>
               <motion.div animate={{ rotate: chapterPickerOpen ? 180 : 0 }}>
                 <ChevronDown size={18} className="text-muted-foreground" />
@@ -741,7 +764,9 @@ export default function Practice() {
                         chapter === item ? 'bg-primary/10 text-primary' : 'text-foreground'
                       }`}
                     >
-                      <span>{item}</span>
+                      <span className={subjectDirectionClass(subject, profile.subjectLanguages)}>
+                        {labelChapter(subject, item)}
+                      </span>
                       {chapter === item && <Check size={15} />}
                     </button>
                   ))}
@@ -828,7 +853,7 @@ export default function Practice() {
                       : 'border-border bg-background text-foreground'
                   }`}
                 >
-                  {item}
+                  {labelSubject(item)}
                 </button>
               ))}
             </div>
@@ -857,7 +882,7 @@ export default function Practice() {
                       {selected && <Check size={13} />}
                     </span>
                     <span className="min-w-0 flex-1 truncate">
-                      {quizSubject === 'All Subjects' ? `${target.subject} - ${target.chapter}` : target.chapter}
+                      {quizSubject === 'All Subjects' ? labelTarget(target) : labelChapter(target.subject, target.chapter)}
                     </span>
                   </button>
                 );
@@ -918,7 +943,7 @@ export default function Practice() {
               {revisionItems.map((item) => (
                 <div key={targetKey(item)} className="rounded-2xl border border-border bg-background p-3">
                   <p className="text-sm font-bold text-foreground">
-                    {item.subject} - {item.chapter}
+                    {labelTarget(item)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">{item.reason}</p>
                 </div>
@@ -1338,7 +1363,9 @@ export default function Practice() {
                         <span className="text-[10px] font-bold text-muted-foreground">{attempt.durationSeconds}s</span>
                       )}
                     </div>
-                    <p className="truncate text-sm font-bold text-foreground">{attempt.subject} - {attempt.chapter}</p>
+                    <p className={`truncate text-sm font-bold text-foreground ${subjectDirectionClass(attempt.subject, profile.subjectLanguages)}`}>
+                      {labelSubject(attempt.subject)} - {labelChapter(attempt.subject, attempt.chapter)}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(attempt.date), { addSuffix: true })}
                     </p>
@@ -1382,8 +1409,12 @@ export default function Practice() {
                   <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     {attemptType(selectedAttempt)} session
                   </p>
-                  <h2 className="text-xl font-black text-foreground">{selectedAttempt.chapter}</h2>
-                  <p className="mt-1 text-sm font-semibold text-muted-foreground">{selectedAttempt.subject}</p>
+                  <h2 className={`text-xl font-black text-foreground ${subjectDirectionClass(selectedAttempt.subject, profile.subjectLanguages)}`}>
+                    {labelChapter(selectedAttempt.subject, selectedAttempt.chapter)}
+                  </h2>
+                  <p className={`mt-1 text-sm font-semibold text-muted-foreground ${subjectDirectionClass(selectedAttempt.subject, profile.subjectLanguages)}`}>
+                    {labelSubject(selectedAttempt.subject)}
+                  </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {new Date(selectedAttempt.date).toLocaleString()}
                   </p>
