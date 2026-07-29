@@ -1,6 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
-import { getSubjectPersona, hasInvalidUrduScript, isUrduSubject } from "../config/subjectPersonas";
+import {
+  getLanguageInstruction,
+  getSubjectPersona,
+  hasInvalidUrduScript,
+  normalizeResponseLanguage,
+} from "../config/subjectPersonas";
 
 const router: IRouter = Router();
 
@@ -8,7 +13,10 @@ interface ExplainChapterRequestBody {
   subject?: string;
   chapter?: string;
   board?: string;
+  responseLanguage?: string;
 }
+
+const EXPLAIN_MODEL = process.env["GROQ_EXPLAIN_MODEL"] ?? "llama-3.1-8b-instant";
 
 function stripJson(raw: string): string {
   let cleaned = raw
@@ -47,7 +55,7 @@ function normalizeExplanation(rawContent: string): { summary: string; keyPoints:
 }
 
 router.post("/explain-chapter", async (req: Request, res: Response): Promise<void> => {
-  const { subject, chapter, board = "Punjab Board" } = req.body as ExplainChapterRequestBody;
+  const { subject, chapter, board = "Punjab Board", responseLanguage } = req.body as ExplainChapterRequestBody;
 
   if (!subject || typeof subject !== "string") {
     res.status(400).json({ ok: false, error: "subject is required" });
@@ -68,10 +76,12 @@ router.post("/explain-chapter", async (req: Request, res: Response): Promise<voi
   const cleanChapter = chapter.trim();
   const cleanBoard = board.trim() || "Punjab Board";
   const persona = getSubjectPersona(cleanSubject);
+  const language = normalizeResponseLanguage(responseLanguage, cleanSubject);
   const groq = new Groq({ apiKey });
 
   try {
     const systemPrompt = `You are helping a Matric-level (grade 9-10) student in Pakistan quickly understand what a chapter covers, following the ${cleanBoard} syllabus. Give a SHORT summary (not a full lesson) of the chapter '${cleanChapter}' in ${cleanSubject}. Cover only the 4-6 most important key points/concepts a student needs to know. Use simple language and concise exam-focused formatting. Keep the entire response under 150 words.
+${getLanguageInstruction(language)}
 ${persona ? `\n${persona}` : ""}
 Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":["...","..."]}. For Urdu, the JSON string values must be written in proper Urdu script.`;
     const userPayload = JSON.stringify({
@@ -80,9 +90,9 @@ Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":[
       board: cleanBoard,
     });
     let completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: EXPLAIN_MODEL,
       temperature: 0.2,
-      max_tokens: 700,
+      max_tokens: 450,
       messages: [
         {
           role: "system",
@@ -96,11 +106,11 @@ Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":[
     });
 
     let { summary, keyPoints } = normalizeExplanation(completion.choices[0]?.message?.content ?? "");
-    if (isUrduSubject(cleanSubject) && hasInvalidUrduScript(`${summary}\n${keyPoints.join("\n")}`)) {
+    if (language === "urdu" && hasInvalidUrduScript(`${summary}\n${keyPoints.join("\n")}`)) {
       completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+        model: EXPLAIN_MODEL,
         temperature: 0.1,
-        max_tokens: 700,
+        max_tokens: 450,
         messages: [
           {
             role: "system",

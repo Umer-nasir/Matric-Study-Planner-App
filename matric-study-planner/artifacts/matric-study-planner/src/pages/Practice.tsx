@@ -30,6 +30,7 @@ import { useAppContext } from '@/context/AppContext';
 import type { PracticeAttempt } from '@/context/AppContext';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
+import { getSubjectStudyLanguage } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
 
 type QuestionType = 'mcq' | 'short' | 'long' | 'definition';
@@ -463,6 +464,7 @@ export default function Practice() {
           subject: targetSubject,
           chapter: targetChapter,
           board: profile.board,
+          responseLanguage: getSubjectStudyLanguage(targetSubject, profile.subjectLanguages),
           questionTypes: targetQuestionTypes,
           countPerType,
           mode: overrides?.type ?? 'chapter',
@@ -530,6 +532,7 @@ export default function Practice() {
           subject: quizSubject,
           chapter: quizSubject === 'All Subjects' ? 'Mixed quiz' : 'Selected chapters quiz',
           board: profile.board,
+          responseLanguage: quizSubject === 'All Subjects' ? undefined : getSubjectStudyLanguage(quizSubject, profile.subjectLanguages),
           mode: 'quiz',
           chapters: selectedQuizTargets,
           questionTypes: ['mcq'],
@@ -594,6 +597,7 @@ export default function Practice() {
           subject,
           chapter,
           board: profile.board,
+          responseLanguage: getSubjectStudyLanguage(subject, profile.subjectLanguages),
           term: definition.term,
           expectedDefinition: definition.definition,
           studentAnswer,

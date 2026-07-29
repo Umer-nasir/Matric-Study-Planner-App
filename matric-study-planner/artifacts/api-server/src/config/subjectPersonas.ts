@@ -34,6 +34,22 @@ export function isUrduSubject(subject?: string): boolean {
   return subject?.trim() === "Urdu";
 }
 
+export type ResponseLanguage = "english" | "urdu";
+
+export function normalizeResponseLanguage(value: unknown, subject?: string): ResponseLanguage {
+  if (subject?.trim() === "Urdu") return "urdu";
+  if (subject?.trim() === "English") return "english";
+  return value === "urdu" ? "urdu" : "english";
+}
+
+export function getLanguageInstruction(language: ResponseLanguage): string {
+  if (language === "urdu") {
+    return "Response language: Urdu. Write in proper Urdu script only, not Roman Urdu. Keep textbook terms clear and use concise board-exam style.";
+  }
+
+  return "Response language: English. Write the full answer in clear simple English. Do not translate the answer into Urdu unless the subject is Urdu or the student explicitly asks for Urdu.";
+}
+
 export function hasInvalidUrduScript(text: string): boolean {
   return /[\u0900-\u097f\u3040-\u30ff\u3400-\u9fff]/.test(text);
 }

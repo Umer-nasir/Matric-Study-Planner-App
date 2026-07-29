@@ -1,6 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
-import { getSubjectPersona } from "../config/subjectPersonas";
+import {
+  getLanguageInstruction,
+  getSubjectPersona,
+  normalizeResponseLanguage,
+  type ResponseLanguage,
+} from "../config/subjectPersonas";
 
 const router: IRouter = Router();
 
@@ -17,6 +22,7 @@ interface PracticeRequestBody {
   subject?: string;
   chapter?: string;
   board?: string;
+  responseLanguage?: string;
   questionTypes?: QuestionType[];
   countPerType?: number;
   totalQuestions?: number;
@@ -28,10 +34,14 @@ interface CheckDefinitionRequestBody {
   subject?: string;
   chapter?: string;
   board?: string;
+  responseLanguage?: string;
   term?: string;
   expectedDefinition?: string;
   studentAnswer?: string;
 }
+
+const FAST_PRACTICE_MODEL = process.env["GROQ_PRACTICE_FAST_MODEL"] ?? "llama-3.1-8b-instant";
+const DEEP_PRACTICE_MODEL = process.env["GROQ_PRACTICE_DEEP_MODEL"] ?? "llama-3.3-70b-versatile";
 
 function isQuestionType(value: unknown): value is QuestionType {
   return value === "mcq" || value === "short" || value === "long" || value === "definition";
@@ -69,6 +79,7 @@ function buildSystemPrompt({
   mode,
   targets,
   totalQuestions,
+  responseLanguage,
 }: {
   subject: string;
   chapter: string;
@@ -76,6 +87,7 @@ function buildSystemPrompt({
   mode: PracticeMode;
   targets: Array<{ subject: string; chapter: string; reason?: string }>;
   totalQuestions?: number;
+  responseLanguage: ResponseLanguage;
 }): string {
   const targetText =
     targets.length > 1
@@ -100,6 +112,7 @@ ${targetText}
 ${distribution}
 ${quizInstruction}
 ${revisionInstruction}
+${getLanguageInstruction(responseLanguage)}
 ${persona ? `\n${persona}` : ""}
 Match the difficulty and phrasing style of real board exam papers. Respond ONLY with valid JSON, no markdown, no explanation, in this exact structure:
 {
@@ -116,6 +129,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
     subject,
     chapter,
     board = "Punjab Board",
+    responseLanguage,
     questionTypes,
     countPerType = 3,
     totalQuestions,
@@ -170,10 +184,12 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
   }
 
   const groq = new Groq({ apiKey });
+  const language = normalizeResponseLanguage(responseLanguage, subject);
+  const model = language === "urdu" ? DEEP_PRACTICE_MODEL : FAST_PRACTICE_MODEL;
 
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model,
       temperature: 0.25,
       max_tokens: 4096,
       messages: [
@@ -186,6 +202,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             mode,
             targets,
             totalQuestions: safeTotalQuestions,
+            responseLanguage: language,
           }),
         },
         {
@@ -199,6 +216,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             questionTypes,
             countPerType: safeCount,
             totalQuestions: safeTotalQuestions,
+            responseLanguage: language,
           }),
         },
       ],
@@ -222,6 +240,7 @@ router.post("/check-definition", async (req: Request, res: Response): Promise<vo
     subject,
     chapter,
     board = "Punjab Board",
+    responseLanguage,
     term,
     expectedDefinition,
     studentAnswer,
@@ -255,16 +274,19 @@ router.post("/check-definition", async (req: Request, res: Response): Promise<vo
   }
 
   const groq = new Groq({ apiKey });
+  const language = normalizeResponseLanguage(responseLanguage, subject);
 
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: language === "urdu" ? DEEP_PRACTICE_MODEL : FAST_PRACTICE_MODEL,
       temperature: 0.1,
       max_tokens: 500,
       messages: [
         {
           role: "system",
-          content: `You are checking a Matric-level student's definition answer for ${board}. Be fair but exam-focused. If the student's answer contains the core meaning, mark it correct even if wording is different. Respond ONLY with valid JSON in this exact shape: {"correct":true,"feedback":"...","modelAnswer":"..."}. Feedback must be short and helpful.`,
+          content: `You are checking a Matric-level student's definition answer for ${board}. Be fair but exam-focused. If the student's answer contains the core meaning, mark it correct even if wording is different.
+${getLanguageInstruction(language)}
+Respond ONLY with valid JSON in this exact shape: {"correct":true,"feedback":"...","modelAnswer":"..."}. Feedback must be short and helpful.`,
         },
         {
           role: "user",

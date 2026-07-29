@@ -27,6 +27,12 @@ import { SUBJECTS } from '@/data/syllabus';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import type { StudyMode } from '@/context/AppContext';
+import {
+  canChooseSubjectLanguage,
+  defaultSubjectLanguage,
+  normalizeSubjectLanguages,
+  type SubjectStudyLanguage,
+} from '@/lib/subjectLanguage';
 
 const MODE_OPTIONS: { value: StudyMode | null; label: string; icon: string; cls: string }[] = [
   { value: 'fun', label: 'Fun', icon: '🎉', cls: 'border-violet-300 bg-violet-50 text-violet-700' },
@@ -59,12 +65,14 @@ export default function Profile() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [draftExamDate, setDraftExamDate] = useState('');
   const [draftSubjects, setDraftSubjects] = useState<string[]>([]);
+  const [draftSubjectLanguages, setDraftSubjectLanguages] = useState<Record<string, SubjectStudyLanguage>>({});
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
     setDraftExamDate(toDateInputValue(profile.examDate));
     setDraftSubjects(profile.subjects);
+    setDraftSubjectLanguages(normalizeSubjectLanguages(profile.subjects, profile.subjectLanguages));
   }, [profile]);
 
   const totals = useMemo(() => {
@@ -90,15 +98,36 @@ export default function Profile() {
   const daysLeft = Math.max(0, differenceInDays(new Date(profile.examDate), new Date()));
   const hasProfileChanges =
     draftExamDate !== toDateInputValue(profile.examDate) ||
-    draftSubjects.join('|') !== profile.subjects.join('|');
+    draftSubjects.join('|') !== profile.subjects.join('|') ||
+    JSON.stringify(normalizeSubjectLanguages(draftSubjects, draftSubjectLanguages)) !==
+      JSON.stringify(normalizeSubjectLanguages(profile.subjects, profile.subjectLanguages));
 
   function toggleSubject(subject: string) {
     setProfileMessage(null);
-    setDraftSubjects((prev) =>
-      prev.includes(subject)
-        ? prev.filter((item) => item !== subject)
-        : [...prev, subject],
-    );
+    setDraftSubjects((prev) => {
+      if (prev.includes(subject)) {
+        setDraftSubjectLanguages((current) => {
+          const next = { ...current };
+          delete next[subject];
+          return next;
+        });
+        return prev.filter((item) => item !== subject);
+      }
+
+      setDraftSubjectLanguages((current) => ({
+        ...current,
+        [subject]: current[subject] ?? defaultSubjectLanguage(subject),
+      }));
+      return [...prev, subject];
+    });
+  }
+
+  function setDraftSubjectLanguage(subject: string, language: SubjectStudyLanguage) {
+    setProfileMessage(null);
+    setDraftSubjectLanguages((current) => ({
+      ...current,
+      [subject]: language,
+    }));
   }
 
   function saveProfileChanges() {
@@ -124,6 +153,7 @@ export default function Profile() {
       ...profile,
       board: profile.board,
       subjects: draftSubjects,
+      subjectLanguages: normalizeSubjectLanguages(draftSubjects, draftSubjectLanguages),
       examDate: selected.toISOString(),
       onboardingComplete: true,
     });
@@ -146,6 +176,7 @@ export default function Profile() {
     const nextProfile = {
       board: profile.board,
       subjects: profile.subjects,
+      subjectLanguages: profile.subjectLanguages,
       examDate: date.toISOString(),
       onboardingComplete: true,
     };
@@ -332,6 +363,47 @@ export default function Profile() {
               })}
             </div>
           </div>
+
+          {draftSubjects.some(canChooseSubjectLanguage) && (
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                AI answer language
+              </p>
+              <div className="space-y-2">
+                {draftSubjects.filter(canChooseSubjectLanguage).map((subject) => {
+                  const language = draftSubjectLanguages[subject] ?? defaultSubjectLanguage(subject);
+                  return (
+                    <div
+                      key={subject}
+                      className="rounded-2xl border border-border bg-background p-3"
+                    >
+                      <p className="mb-2 text-sm font-bold text-foreground">{subject}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['english', 'urdu'] as const).map((option) => {
+                          const selected = language === option;
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setDraftSubjectLanguage(subject, option)}
+                              className={`min-h-[44px] rounded-2xl border px-3 text-xs font-bold transition-colors ${
+                                selected
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border bg-card text-muted-foreground'
+                              }`}
+                              data-testid={`profile-subject-language-${subject.replace(/\s+/g, '-').toLowerCase()}-${option}`}
+                            >
+                              {option === 'english' ? 'English' : 'Urdu'}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-3 pt-1">
             <Button

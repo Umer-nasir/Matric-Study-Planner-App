@@ -5,6 +5,7 @@ import { ModeIndicator } from '@/components/ModeIndicator';
 import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
+import { getSubjectStudyLanguage } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
 
 type TutorApiMessage = {
@@ -291,6 +292,8 @@ export default function AiTutor() {
 
     try {
       let data: { reply?: string; error?: string };
+      const responseLanguage =
+        selectedSubject === 'General' ? undefined : getSubjectStudyLanguage(selectedSubject, profile?.subjectLanguages);
 
       if (attachment) {
         const formData = new FormData();
@@ -300,6 +303,7 @@ export default function AiTutor() {
         formData.append('file', attachment.file);
         if (selectedSubject !== 'General') formData.append('subject', selectedSubject);
         if (profile?.board) formData.append('board', profile.board);
+        if (responseLanguage) formData.append('responseLanguage', responseLanguage);
         data = await uploadTutorRequest(formData, setUploadProgress);
       } else {
         const res = await fetch(apiUrl('/api/tutor-chat'), {
@@ -309,6 +313,7 @@ export default function AiTutor() {
             message: trimmed,
             subject: selectedSubject === 'General' ? undefined : selectedSubject,
             board: profile?.board,
+            responseLanguage,
             currentMode,
             conversationHistory,
           }),

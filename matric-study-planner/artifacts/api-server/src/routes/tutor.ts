@@ -4,7 +4,13 @@ import Groq from "groq-sdk";
 import mammoth from "mammoth";
 import multer from "multer";
 import type pdfParseType from "pdf-parse";
-import { getSubjectPersona, hasInvalidUrduScript, isUrduSubject } from "../config/subjectPersonas";
+import {
+  getLanguageInstruction,
+  getSubjectPersona,
+  hasInvalidUrduScript,
+  normalizeResponseLanguage,
+  type ResponseLanguage,
+} from "../config/subjectPersonas";
 
 const router: IRouter = Router();
 const require = createRequire(import.meta.url);
@@ -34,6 +40,7 @@ interface TutorChatRequestBody {
   message?: string;
   subject?: string;
   board?: string;
+  responseLanguage?: string;
   currentMode: StudyMode;
   conversationHistory?: ConversationMessage[] | string;
 }
@@ -80,10 +87,12 @@ function buildSystemPrompt({
   currentMode,
   subject,
   board,
+  responseLanguage,
 }: {
   currentMode: StudyMode;
   subject?: string;
   board?: string;
+  responseLanguage: ResponseLanguage;
 }): string {
   const context: string[] = [];
   if (subject && subject !== "General") context.push(`Subject focus: ${subject}.`);
@@ -92,6 +101,7 @@ function buildSystemPrompt({
 
   return `You are a friendly, patient tutor helping a Matric-level (grade 9-10) student in Pakistan understand a topic. Explain in simple, clear language appropriate for their grade level - not university-level depth. Use short paragraphs, and if relevant, a simple example or analogy. If asked something unrelated to their studies, gently redirect them back to academics. Keep responses concise (aim for 100-200 words) since students are reading on mobile.
 ${context.length ? `\n${context.join("\n")}` : ""}
+${getLanguageInstruction(responseLanguage)}
 ${persona ? `\n${persona}` : ""}
 ${
   currentMode === "focus"
@@ -100,16 +110,19 @@ ${
 }`;
 }
 
-function getTutorTextModel(subject?: string): string {
-  return isUrduSubject(subject) ? DEEP_TEXT_MODEL : FAST_TEXT_MODEL;
+function getTutorTextModel(responseLanguage: ResponseLanguage): string {
+  return responseLanguage === "urdu" ? DEEP_TEXT_MODEL : FAST_TEXT_MODEL;
 }
 
-function getInstantTutorReply(message: string): string | null {
+function getInstantTutorReply(message: string, responseLanguage: ResponseLanguage): string | null {
   const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, "");
   if (!/^(hi|hello|hey|salam|assalamualaikum|assalamu alaikum)$/.test(normalized)) {
     return null;
   }
 
+  if (responseLanguage === "urdu") {
+    return "وعلیکم السلام! اپنا میٹرک کا سوال لکھیں، میں مختصر اور امتحانی انداز میں سمجھا دوں گا۔";
+  }
   return "Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.";
 }
 
@@ -179,7 +192,7 @@ function runUpload(req: Request, res: Response, next: (err?: unknown) => void) {
 }
 
 router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promise<void> => {
-  const { message, subject, board, currentMode, conversationHistory } =
+  const { message, subject, board, responseLanguage, currentMode, conversationHistory } =
     req.body as TutorChatRequestBody;
   const uploadedFile = req.file;
   const trimmedMessage = typeof message === "string" ? message.trim() : "";
@@ -194,8 +207,11 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     return;
   }
 
+  const safeSubject = getTextField(subject);
+  const language = normalizeResponseLanguage(responseLanguage, safeSubject);
+
   if (!uploadedFile) {
-    const instantReply = getInstantTutorReply(trimmedMessage);
+    const instantReply = getInstantTutorReply(trimmedMessage, language);
     if (instantReply) {
       res.json({ reply: instantReply });
       return;
@@ -210,12 +226,12 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
 
   const groq = new Groq({ apiKey });
   const safeHistory = sanitizeHistory(conversationHistory);
-  const safeSubject = getTextField(subject);
-  const textModel = getTutorTextModel(safeSubject);
+  const textModel = getTutorTextModel(language);
   const systemPrompt = buildSystemPrompt({
     currentMode,
     subject: safeSubject,
     board: getTextField(board),
+    responseLanguage: language,
   });
 
   try {
@@ -313,7 +329,7 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     });
 
     let reply = completion.choices[0]?.message?.content?.trim();
-    if (reply && isUrduSubject(safeSubject) && hasInvalidUrduScript(reply)) {
+    if (reply && language === "urdu" && hasInvalidUrduScript(reply)) {
       const corrected = await groq.chat.completions.create({
         model: DEEP_TEXT_MODEL,
         temperature: 0.15,

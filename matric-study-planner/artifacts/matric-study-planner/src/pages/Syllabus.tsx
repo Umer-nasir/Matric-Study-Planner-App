@@ -10,6 +10,7 @@ import { Button } from '@/components/Button';
 import { SubjectIcon } from '@/components/SubjectIcon';
 import type { ChapterState } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
+import { getSubjectStudyLanguage, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -95,13 +96,13 @@ interface SelectedChapter {
   chapter: string;
 }
 
-function explanationCacheKey(subject: string, chapter: string): string {
-  return `matric_chapter_explanation::${subject}::${chapter}`.toLowerCase();
+function explanationCacheKey(subject: string, chapter: string, language: SubjectStudyLanguage): string {
+  return `matric_chapter_explanation_v2::${language}::${subject}::${chapter}`.toLowerCase();
 }
 
-function loadCachedExplanation(subject: string, chapter: string): ChapterExplanation | null {
+function loadCachedExplanation(subject: string, chapter: string, language: SubjectStudyLanguage): ChapterExplanation | null {
   try {
-    const raw = localStorage.getItem(explanationCacheKey(subject, chapter));
+    const raw = localStorage.getItem(explanationCacheKey(subject, chapter, language));
     return raw ? (JSON.parse(raw) as ChapterExplanation) : null;
   } catch {
     return null;
@@ -272,7 +273,8 @@ export default function Syllabus() {
     setSelectedChapter({ subject, chapter });
     setExplanation(null);
     setExplanationError(null);
-    const cached = loadCachedExplanation(subject, chapter);
+    const language = getSubjectStudyLanguage(subject, profile!.subjectLanguages);
+    const cached = loadCachedExplanation(subject, chapter, language);
     if (cached) {
       setExplanation(cached);
       return;
@@ -287,6 +289,7 @@ export default function Syllabus() {
     if (refresh) setExplanation(null);
 
     try {
+      const responseLanguage = getSubjectStudyLanguage(subject, profile.subjectLanguages);
       const res = await fetch(apiUrl('/api/explain-chapter'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,6 +297,7 @@ export default function Syllabus() {
           subject,
           chapter,
           board: profile.board,
+          responseLanguage,
         }),
       });
       const data = (await res.json()) as {
@@ -311,7 +315,7 @@ export default function Syllabus() {
         cachedAt: new Date().toISOString(),
       };
       setExplanation(next);
-      localStorage.setItem(explanationCacheKey(subject, chapter), JSON.stringify(next));
+      localStorage.setItem(explanationCacheKey(subject, chapter, responseLanguage), JSON.stringify(next));
     } catch (err) {
       setExplanationError(err instanceof Error ? err.message : "Couldn't load explanation right now, try again.");
     } finally {

@@ -5,6 +5,12 @@ import { CalendarDays } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { BOARDS, SUBJECTS } from '@/data/syllabus';
 import { useAppContext } from '@/context/AppContext';
+import {
+  canChooseSubjectLanguage,
+  defaultSubjectLanguage,
+  normalizeSubjectLanguages,
+  type SubjectStudyLanguage,
+} from '@/lib/subjectLanguage';
 
 const stepVariants = {
   enter: { opacity: 0, x: 32 },
@@ -18,6 +24,7 @@ export default function Onboarding() {
   const [selectedBoard, setSelectedBoard] = useState('');
   const [boardConfirmed, setBoardConfirmed] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [selectedSubjectLanguages, setSelectedSubjectLanguages] = useState<Record<string, SubjectStudyLanguage>>({});
   const [examDate, setExamDate] = useState('');
   const [error, setError] = useState('');
 
@@ -41,7 +48,7 @@ export default function Onboarding() {
       return;
     }
 
-    if (step === 3) {
+    if (step === 4) {
       if (!examDate) {
         setError('Please select your exam date.');
         return;
@@ -59,6 +66,7 @@ export default function Onboarding() {
       setProfile({
         board: selectedBoard,
         subjects: selectedSubjects,
+        subjectLanguages: normalizeSubjectLanguages(selectedSubjects, selectedSubjectLanguages),
         examDate: new Date(examDate).toISOString(),
         onboardingComplete: true,
       });
@@ -81,10 +89,28 @@ export default function Onboarding() {
   const toggleSubject = (subject: string) => {
     if (selectedSubjects.includes(subject)) {
       setSelectedSubjects(selectedSubjects.filter((s) => s !== subject));
+      setSelectedSubjectLanguages((current) => {
+        const next = { ...current };
+        delete next[subject];
+        return next;
+      });
     } else {
       setSelectedSubjects([...selectedSubjects, subject]);
+      setSelectedSubjectLanguages((current) => ({
+        ...current,
+        [subject]: current[subject] ?? defaultSubjectLanguage(subject),
+      }));
     }
   };
+
+  const setSubjectLanguage = (subject: string, language: SubjectStudyLanguage) => {
+    setSelectedSubjectLanguages((current) => ({
+      ...current,
+      [subject]: language,
+    }));
+  };
+
+  const languageChoiceSubjects = selectedSubjects.filter(canChooseSubjectLanguage);
 
   const daysUntilExam =
     examDate
@@ -106,7 +132,7 @@ export default function Onboarding() {
 
       {/* Progress Dots */}
       <div className="pt-12 pb-6 px-6 flex justify-center space-x-2">
-        {[1, 2, 3].map((i) => (
+        {[1, 2, 3, 4].map((i) => (
           <motion.div
             key={i}
             animate={{
@@ -287,6 +313,66 @@ export default function Onboarding() {
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
               className="flex-1 flex flex-col"
             >
+              <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
+                Choose study language
+              </h1>
+              <p className="text-muted-foreground mb-6">
+                For each subject, choose how AI explanations and practice answers should be written.
+              </p>
+
+              <div className="space-y-3 flex-1 overflow-y-auto pb-24">
+                {languageChoiceSubjects.length === 0 ? (
+                  <div className="rounded-2xl border border-border bg-card p-5 text-sm font-semibold text-muted-foreground">
+                    English and Urdu use their own fixed language automatically.
+                  </div>
+                ) : (
+                  languageChoiceSubjects.map((subject) => {
+                    const language = selectedSubjectLanguages[subject] ?? defaultSubjectLanguage(subject);
+                    return (
+                      <div
+                        key={subject}
+                        className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+                      >
+                        <p className="mb-3 text-base font-bold text-foreground">{subject}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(['english', 'urdu'] as const).map((option) => {
+                            const selected = language === option;
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => setSubjectLanguage(subject, option)}
+                                className={`min-h-[44px] rounded-2xl border px-3 text-sm font-bold transition-colors ${
+                                  selected
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-border bg-background text-muted-foreground'
+                                }`}
+                                data-testid={`subject-language-${subject.replace(/\s+/g, '-').toLowerCase()}-${option}`}
+                              >
+                                {option === 'english' ? 'English' : 'Urdu'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {step === 4 && (
+            <motion.div
+              key="step4"
+              custom={direction}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              className="flex-1 flex flex-col"
+            >
               <h1 className="text-3xl font-bold tracking-tight text-foreground mb-8">
                 When is your exam?
               </h1>
@@ -381,7 +467,7 @@ export default function Onboarding() {
           >
             {step === 1 && selectedBoard && !boardConfirmed
               ? 'Confirm Board'
-              : step === 3
+              : step === 4
               ? 'Get Started'
               : 'Next'}
           </Button>

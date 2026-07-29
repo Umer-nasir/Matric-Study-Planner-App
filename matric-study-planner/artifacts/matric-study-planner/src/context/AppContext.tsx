@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import type { AiSchedule } from '@/types/schedule';
+import { normalizeSubjectLanguages, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ export interface Profile {
   subjects: string[];
   examDate: string;
   onboardingComplete: boolean;
+  subjectLanguages?: Record<string, SubjectStudyLanguage>;
 }
 
 export interface StudyEvent {
@@ -237,6 +239,13 @@ function normalizeCompletionForSubjects(subjects: string[], storedCompletion: un
   return filled;
 }
 
+function normalizeProfile(profile: Profile): Profile {
+  return {
+    ...profile,
+    subjectLanguages: normalizeSubjectLanguages(profile.subjects, profile.subjectLanguages),
+  };
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -259,7 +268,11 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   // Load all persisted data on mount
   useEffect(() => {
     const storedProfile = loadJSON<Profile | null>('matric_profile', null);
-    if (storedProfile) setProfileState(storedProfile);
+    if (storedProfile) {
+      const normalized = normalizeProfile(storedProfile);
+      setProfileState(normalized);
+      saveJSON('matric_profile', normalized);
+    }
 
     const streakData = loadJSON<{ count: number; lastDate: string | null }>(
       'matric_streak',
@@ -299,7 +312,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
   const setProfile = useCallback((p: Profile) => {
     const boardLocked = Boolean(profile?.onboardingComplete && profile.board && p.board !== profile.board);
-    const nextProfile = boardLocked ? { ...p, board: profile!.board } : p;
+    const nextProfile = normalizeProfile(boardLocked ? { ...p, board: profile!.board } : p);
     if (boardLocked) {
       console.warn('Board is locked after onboarding. Reset progress to choose a different board.');
     }
@@ -323,12 +336,12 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       saveJSON('matric_chapters', next);
       return next;
     });
-  }, []);
+  }, [profile]);
 
   const clearProfile = useCallback(() => {
     localStorage.removeItem('matric_profile');
     setProfileState(null);
-  }, [profile]);
+  }, []);
 
   const resetProgress = useCallback(() => {
     setProfileState(null);
