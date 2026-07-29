@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import {
   Award,
   BookOpen,
@@ -28,6 +28,14 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import type { StudyMode } from '@/context/AppContext';
 import {
+  dateInputValueToExamDate,
+  dateOnlyToLocalDate,
+  daysUntilDateOnly,
+  examDateToLocalDate,
+  todayDateOnly,
+  toDateInputValue,
+} from '@/lib/dateOnly';
+import {
   canChooseSubjectLanguage,
   defaultSubjectLanguage,
   normalizeSubjectLanguages,
@@ -40,10 +48,6 @@ const MODE_OPTIONS: { value: StudyMode | null; label: string; icon: string; cls:
   { value: 'focus', label: 'Focus', icon: '🎯', cls: 'border-red-300 bg-red-50 text-red-700' },
   { value: null, label: 'Auto', icon: 'A', cls: 'border-gray-300 bg-gray-50 text-gray-700' },
 ];
-
-function toDateInputValue(isoDate: string): string {
-  return new Date(isoDate).toISOString().slice(0, 10);
-}
 
 export default function Profile() {
   const {
@@ -95,7 +99,7 @@ export default function Profile() {
 
   if (!profile) return null;
 
-  const daysLeft = Math.max(0, differenceInDays(new Date(profile.examDate), new Date()));
+  const daysLeft = Math.max(0, daysUntilDateOnly(profile.examDate));
   const hasProfileChanges =
     draftExamDate !== toDateInputValue(profile.examDate) ||
     draftSubjects.join('|') !== profile.subjects.join('|') ||
@@ -141,7 +145,7 @@ export default function Profile() {
       return;
     }
 
-    const selected = new Date(draftExamDate);
+    const selected = dateOnlyToLocalDate(draftExamDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (selected <= today) {
@@ -154,7 +158,7 @@ export default function Profile() {
       board: profile.board,
       subjects: draftSubjects,
       subjectLanguages: normalizeSubjectLanguages(draftSubjects, draftSubjectLanguages),
-      examDate: selected.toISOString(),
+      examDate: dateInputValueToExamDate(draftExamDate),
       onboardingComplete: true,
     });
     setProfileMessage('Profile updated.');
@@ -177,7 +181,7 @@ export default function Profile() {
       board: profile.board,
       subjects: profile.subjects,
       subjectLanguages: profile.subjectLanguages,
-      examDate: date.toISOString(),
+      examDate: dateInputValueToExamDate(todayDateOnly(date)),
       onboardingComplete: true,
     };
     setProfile(nextProfile);
@@ -333,7 +337,7 @@ export default function Profile() {
               aria-label="Exam date"
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Current exam date: {format(new Date(profile.examDate), 'dd MMMM yyyy')}
+              Current exam date: {format(examDateToLocalDate(profile.examDate), 'dd MMMM yyyy')}
             </p>
           </label>
 

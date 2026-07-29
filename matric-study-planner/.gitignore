@@ -49,3 +49,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Local Codex/test run artifacts
+.codex-run-logs/

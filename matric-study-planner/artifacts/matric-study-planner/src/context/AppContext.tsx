@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import type { AiSchedule } from '@/types/schedule';
+import { addDaysDateOnly, daysUntilDateOnly, todayDateOnly } from '@/lib/dateOnly';
 import { normalizeSubjectLanguages, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -145,11 +146,7 @@ function computeMode(
   if (simulatedMode) return simulatedMode;
   if (!profile) return 'fun';
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const exam = new Date(profile.examDate);
-  exam.setHours(0, 0, 0, 0);
-  const daysLeft = Math.round((exam.getTime() - today.getTime()) / 86400000);
+  const daysLeft = daysUntilDateOnly(profile.examDate);
 
   const prepPeriod = 180;
   const daysElapsed = Math.max(0, prepPeriod - Math.max(0, daysLeft));
@@ -162,7 +159,7 @@ function computeMode(
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayDateOnly();
 }
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
@@ -438,7 +435,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     if (hour >= 23 || hour < 4) unlockBadge('night_owl');
     if (lastStudiedDate === today) return;
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterday = addDaysDateOnly(-1);
     const daysSinceLast = lastStudiedDate
       ? Math.round(
           (new Date(today).getTime() - new Date(lastStudiedDate).getTime()) / 86400000,

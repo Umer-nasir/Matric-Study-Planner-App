@@ -6,6 +6,13 @@ import { Button } from '@/components/Button';
 import { BOARDS, SUBJECTS } from '@/data/syllabus';
 import { useAppContext } from '@/context/AppContext';
 import {
+  addDaysDateOnly,
+  dateInputValueToExamDate,
+  dateOnlyToLocalDate,
+  daysUntilDateOnly,
+  examDateToLocalDate,
+} from '@/lib/dateOnly';
+import {
   canChooseSubjectLanguage,
   defaultSubjectLanguage,
   normalizeSubjectLanguages,
@@ -54,7 +61,7 @@ export default function Onboarding() {
         return;
       }
 
-      const selected = new Date(examDate);
+      const selected = dateOnlyToLocalDate(examDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -67,7 +74,7 @@ export default function Onboarding() {
         board: selectedBoard,
         subjects: selectedSubjects,
         subjectLanguages: normalizeSubjectLanguages(selectedSubjects, selectedSubjectLanguages),
-        examDate: new Date(examDate).toISOString(),
+        examDate: dateInputValueToExamDate(examDate),
         onboardingComplete: true,
       });
       setLocation('/dashboard');
@@ -114,13 +121,11 @@ export default function Onboarding() {
 
   const daysUntilExam =
     examDate
-      ? Math.ceil((new Date(examDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+      ? daysUntilDateOnly(examDate)
       : null;
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minExamDate = tomorrow.toISOString().slice(0, 10);
+  const minExamDate = addDaysDateOnly(1);
   const formattedExamDate = examDate
-    ? new Date(examDate).toLocaleDateString(undefined, {
+    ? examDateToLocalDate(examDate).toLocaleDateString(undefined, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',

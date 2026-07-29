@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
-import { AlertCircle, ArrowLeft, BookOpen, CalendarCheck, ChevronDown, Info, Loader2, RefreshCw, X } from 'lucide-react';
+import { AlertCircle, BookOpen, CalendarCheck, ChevronDown, Info, Loader2, RefreshCw, X } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAppContext } from '@/context/AppContext';
 import { SYLLABUS_DATA } from '@/data/syllabusData';

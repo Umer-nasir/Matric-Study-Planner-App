@@ -13,6 +13,7 @@ import { getFirebaseServices } from '@/lib/firebase';
 const AUTH_GUEST_KEY = 'matric_auth_guest';
 const AUTH_USER_KEY = 'matric_auth_user';
 const AUTH_REDIRECT_ERROR_KEY = 'matric_auth_redirect_error';
+const AUTH_SIGNING_OUT_KEY = 'matric_auth_signing_out';
 
 export interface AuthUser {
   uid: string;
@@ -108,6 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         unsubscribe = onAuthStateChanged(services.auth, (user) => {
           if (user) {
+            if (sessionStorage.getItem(AUTH_SIGNING_OUT_KEY) === 'true') {
+              return;
+            }
             const authUser = toAuthUser(user);
             setCurrentUser(authUser);
             setIsGuest(false);
@@ -169,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    sessionStorage.setItem(AUTH_SIGNING_OUT_KEY, 'true');
     setCurrentUser(null);
     setIsGuest(false);
     localStorage.removeItem(AUTH_USER_KEY);
@@ -179,6 +184,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { signOut: firebaseSignOut } = await import('firebase/auth');
       await firebaseSignOut(services.auth).catch(() => undefined);
     }
+    window.setTimeout(() => {
+      sessionStorage.removeItem(AUTH_SIGNING_OUT_KEY);
+    }, 1500);
   }, []);
 
   const value = useMemo(

@@ -118,11 +118,6 @@ function targetKey(target: ChapterTarget): string {
   return `${target.subject}::${target.chapter}`;
 }
 
-function splitTargetKey(key: string): ChapterTarget {
-  const [targetSubject = '', targetChapter = ''] = key.split('::');
-  return { subject: targetSubject, chapter: targetChapter };
-}
-
 function attemptType(attempt: PracticeAttempt): PracticeAttemptType {
   return attempt.type ?? 'chapter';
 }

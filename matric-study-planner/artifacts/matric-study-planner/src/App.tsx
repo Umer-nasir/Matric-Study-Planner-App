@@ -5,16 +5,14 @@ import { AppContextProvider, useAppContext } from '@/context/AppContext';
 import { AuthProvider, useAuthContext } from '@/context/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Transition, Variants } from 'framer-motion';
-import { lazy, Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import Onboarding from '@/pages/Onboarding';
 import Portal from '@/pages/Portal';
-
-// Pages
-const Dashboard = lazy(() => import('@/pages/Dashboard'));
-const Syllabus = lazy(() => import('@/pages/Syllabus'));
-const AiTutor = lazy(() => import('@/pages/AiTutor'));
-const Practice = lazy(() => import('@/pages/Practice'));
-const Profile = lazy(() => import('@/pages/Profile'));
+import Dashboard from '@/pages/Dashboard';
+import Syllabus from '@/pages/Syllabus';
+import AiTutor from '@/pages/AiTutor';
+import Practice from '@/pages/Practice';
+import Profile from '@/pages/Profile';
 import { BottomNav } from '@/components/BottomNav';
 import { BadgeModal } from '@/components/BadgeModal';
 
@@ -219,15 +217,7 @@ function ProtectedRoutes() {
 function AppContent() {
   return (
     <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-      <Suspense
-        fallback={
-          <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center">
-            <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-          </div>
-        }
-      >
-        <ProtectedRoutes />
-      </Suspense>
+      <ProtectedRoutes />
     </WouterRouter>
   );
 }

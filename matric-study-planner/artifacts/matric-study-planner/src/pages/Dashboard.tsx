@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { format, differenceInDays, addDays } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { Award, PartyPopper, BookCheck, RefreshCw, ChevronDown, Clock, AlertCircle, Sparkles, Calendar, CalendarCheck, X } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +18,7 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import { getDailyQuote } from '@/data/quotes';
 import { apiUrl } from '@/lib/api';
-import type { ChapterCompletion, ChapterState, StudyMode } from '@/context/AppContext';
+import type { ChapterCompletion, ChapterState } from '@/context/AppContext';
 import type { ScheduleDay } from '@/types/schedule';
 
 // ── Animation variants ────────────────────────────────────────────────────────

@@ -223,7 +223,6 @@ export default function AiTutor() {
     setTutorChatHistory,
   } = useAppContext();
   const isFocus = currentMode === 'focus';
-  const isFun = currentMode === 'fun';
   const [selectedSubject, setSelectedSubject] = useState('General');
   const [draft, setDraft] = useState('');
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
