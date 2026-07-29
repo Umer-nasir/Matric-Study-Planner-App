@@ -6,10 +6,10 @@ import { AuthProvider, useAuthContext } from '@/context/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Transition, Variants } from 'framer-motion';
 import { lazy, Suspense, useEffect } from 'react';
+import Onboarding from '@/pages/Onboarding';
+import Portal from '@/pages/Portal';
 
 // Pages
-const Onboarding = lazy(() => import('@/pages/Onboarding'));
-const Portal = lazy(() => import('@/pages/Portal'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Syllabus = lazy(() => import('@/pages/Syllabus'));
 const AiTutor = lazy(() => import('@/pages/AiTutor'));

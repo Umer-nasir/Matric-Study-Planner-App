@@ -4,6 +4,7 @@ import {
   getLanguageInstruction,
   getSubjectPersona,
   hasInvalidUrduScript,
+  hasUrduScript,
   normalizeResponseLanguage,
 } from "../config/subjectPersonas";
 
@@ -83,7 +84,7 @@ router.post("/explain-chapter", async (req: Request, res: Response): Promise<voi
     const systemPrompt = `You are helping a Matric-level (grade 9-10) student in Pakistan quickly understand what a chapter covers, following the ${cleanBoard} syllabus. Give a SHORT summary (not a full lesson) of the chapter '${cleanChapter}' in ${cleanSubject}. Cover only the 4-6 most important key points/concepts a student needs to know. Use simple language and concise exam-focused formatting. Keep the entire response under 150 words.
 ${getLanguageInstruction(language)}
 ${persona ? `\n${persona}` : ""}
-Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":["...","..."]}. For Urdu, the JSON string values must be written in proper Urdu script.`;
+Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":["...","..."]}. For Urdu, the JSON string values must be written in proper Urdu script. For English, all JSON string values must be English only.`;
     const userPayload = JSON.stringify({
       subject: cleanSubject,
       chapter: cleanChapter,
@@ -106,6 +107,22 @@ Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":[
     });
 
     let { summary, keyPoints } = normalizeExplanation(completion.choices[0]?.message?.content ?? "");
+    if (language === "english" && hasUrduScript(`${summary}\n${keyPoints.join("\n")}`)) {
+      completion = await groq.chat.completions.create({
+        model: EXPLAIN_MODEL,
+        temperature: 0.05,
+        max_tokens: 450,
+        messages: [
+          {
+            role: "system",
+            content: `${systemPrompt}\nYour previous draft was in Urdu. Rewrite all JSON string values in English only. Do not use Urdu script.`,
+          },
+          { role: "user", content: userPayload },
+        ],
+      });
+      ({ summary, keyPoints } = normalizeExplanation(completion.choices[0]?.message?.content ?? ""));
+    }
+
     if (language === "urdu" && hasInvalidUrduScript(`${summary}\n${keyPoints.join("\n")}`)) {
       completion = await groq.chat.completions.create({
         model: EXPLAIN_MODEL,

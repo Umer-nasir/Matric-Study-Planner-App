@@ -169,15 +169,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    setCurrentUser(null);
+    setIsGuest(false);
+    localStorage.removeItem(AUTH_USER_KEY);
+    localStorage.removeItem(AUTH_GUEST_KEY);
+
     const services = await getFirebaseServices();
     if (services) {
       const { signOut: firebaseSignOut } = await import('firebase/auth');
       await firebaseSignOut(services.auth).catch(() => undefined);
     }
-    setCurrentUser(null);
-    setIsGuest(false);
-    localStorage.removeItem(AUTH_USER_KEY);
-    localStorage.removeItem(AUTH_GUEST_KEY);
   }, []);
 
   const value = useMemo(

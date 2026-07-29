@@ -11,7 +11,7 @@ import { SubjectIcon } from '@/components/SubjectIcon';
 import type { ChapterState } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
 import { getSubjectStudyLanguage, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
-import { rtlTextClass } from '@/lib/textDirection';
+import { containsUrduScript, rtlTextClass } from '@/lib/textDirection';
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 
@@ -97,13 +97,21 @@ interface SelectedChapter {
 }
 
 function explanationCacheKey(subject: string, chapter: string, language: SubjectStudyLanguage): string {
-  return `matric_chapter_explanation_v2::${language}::${subject}::${chapter}`.toLowerCase();
+  return `matric_chapter_explanation_v3::${language}::${subject}::${chapter}`.toLowerCase();
 }
 
 function loadCachedExplanation(subject: string, chapter: string, language: SubjectStudyLanguage): ChapterExplanation | null {
   try {
-    const raw = localStorage.getItem(explanationCacheKey(subject, chapter, language));
-    return raw ? (JSON.parse(raw) as ChapterExplanation) : null;
+    const key = explanationCacheKey(subject, chapter, language);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ChapterExplanation;
+    const text = `${parsed.summary}\n${parsed.keyPoints.join('\n')}`;
+    if (language === 'english' && containsUrduScript(text)) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -314,6 +322,10 @@ export default function Syllabus() {
         keyPoints: Array.isArray(data.keyPoints) ? data.keyPoints : [],
         cachedAt: new Date().toISOString(),
       };
+      const text = `${next.summary}\n${next.keyPoints.join('\n')}`;
+      if (responseLanguage === 'english' && containsUrduScript(text)) {
+        throw new Error('The explanation came back in Urdu. Please tap refresh and try again.');
+      }
       setExplanation(next);
       localStorage.setItem(explanationCacheKey(subject, chapter, responseLanguage), JSON.stringify(next));
     } catch (err) {

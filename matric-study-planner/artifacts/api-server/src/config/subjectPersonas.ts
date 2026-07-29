@@ -53,3 +53,7 @@ export function getLanguageInstruction(language: ResponseLanguage): string {
 export function hasInvalidUrduScript(text: string): boolean {
   return /[\u0900-\u097f\u3040-\u30ff\u3400-\u9fff]/.test(text);
 }
+
+export function hasUrduScript(text: string): boolean {
+  return /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/.test(text);
+}
