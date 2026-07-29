@@ -131,8 +131,8 @@ function uploadTutorRequest(
         const isHtmlError = xhr.responseText.trim().startsWith('<!DOCTYPE html');
         data = {
           error: isHtmlError
-            ? 'The tutor server returned an unexpected error page. Please restart the backend and try again.'
-            : 'The tutor returned an unreadable response. Please try again.',
+            ? 'The AI tutor is not connected correctly right now. Please try again in a moment.'
+            : 'The AI tutor had trouble reading that response. Please try again.',
         };
       }
 
@@ -152,15 +152,20 @@ function TypingIndicator() {
   return (
     <div className="flex justify-start">
       <div className="rounded-2xl rounded-bl-md bg-card border border-border px-4 py-3 shadow-sm">
-        <div className="flex gap-1">
-          {[0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              className="h-1.5 w-1.5 rounded-full bg-muted-foreground"
-              animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
-              transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.12 }}
-            />
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1">
+            {[0, 1, 2].map((i) => (
+              <motion.span
+                key={i}
+                className="h-1.5 w-1.5 rounded-full bg-primary"
+                animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
+                transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.12 }}
+              />
+            ))}
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground">
+            Preparing exam-focused answer...
+          </span>
         </div>
       </div>
     </div>
@@ -342,8 +347,8 @@ export default function AiTutor() {
         createMessage(
           'system',
           err instanceof Error
-            ? err.message
-            : 'I could not reach the AI tutor right now. Please try again in a moment.',
+            ? err.message.replace(/^.*fetch.*$/i, 'AI is busy right now. Try again in a moment.')
+            : 'AI is busy right now. Try again in a moment.',
         ),
       ]);
     } finally {
@@ -390,7 +395,7 @@ export default function AiTutor() {
 
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="sticky top-0 z-20 bg-card border-b border-border px-5 pt-10 pb-4">
+      <div className="sticky top-0 z-20 bg-card border-b border-border px-5 pt-8 pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">AI Tutor</h1>
@@ -427,7 +432,7 @@ export default function AiTutor() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-44">
+      <div className="flex-1 overflow-y-auto px-5 pt-4 pb-44">
         {isFocus && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
             <Zap size={14} />

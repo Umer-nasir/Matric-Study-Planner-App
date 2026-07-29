@@ -87,6 +87,7 @@ export interface AppContextType {
   setProfile: (p: Profile) => void;
   clearProfile: () => void;
   resetProgress: () => void;
+  loadDemoData: () => void;
 
   // Mode
   currentMode: StudyMode;
@@ -247,6 +248,32 @@ function normalizeProfile(profile: Profile): Profile {
   };
 }
 
+function buildDemoSchedule(): AiSchedule {
+  const today = todayDateOnly();
+  return {
+    generatedAt: new Date().toISOString(),
+    week: [
+      {
+        day: 'Today',
+        date: today,
+        blocks: [
+          { subject: 'Physics', chapter: 'Measurements', durationMinutes: 35 },
+          { subject: 'Chemistry', chapter: 'Structure of Atoms', durationMinutes: 30 },
+          { subject: 'Mathematics', chapter: 'Matrices and Determinants', durationMinutes: 40 },
+        ],
+      },
+      {
+        day: 'Tomorrow',
+        date: addDaysDateOnly(1),
+        blocks: [
+          { subject: 'Physics', chapter: 'Vectors and Equilibrium', durationMinutes: 35 },
+          { subject: 'Mathematics', chapter: 'Real and Complex Numbers', durationMinutes: 40 },
+        ],
+      },
+    ],
+  };
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -369,6 +396,70 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
     setPracticeHistory([]);
     localStorage.removeItem('matric_practice_history');
+  }, []);
+
+  const loadDemoData = useCallback(() => {
+    const demoSubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
+    const demoProfile = normalizeProfile({
+      board: 'Punjab Board',
+      subjects: demoSubjects,
+      subjectLanguages: {
+        Physics: 'english',
+        Chemistry: 'english',
+        Mathematics: 'english',
+        Biology: 'english',
+      },
+      examDate: addDaysDateOnly(88),
+      onboardingComplete: true,
+    });
+
+    const completion = buildEmptyCompletion(demoSubjects);
+    completion.Physics['Measurements'] = { done: true, selectedForSchedule: false };
+    completion.Chemistry['Fundamentals of Chemistry'] = { done: true, selectedForSchedule: false };
+    completion.Mathematics['Matrices and Determinants'] = { done: false, selectedForSchedule: true };
+    completion.Biology['Introduction to Biology'] = { done: true, selectedForSchedule: false };
+
+    const schedule = buildDemoSchedule();
+    const demoStreak = { count: 3, lastDate: todayDateOnly() };
+    const demoBadges = ['first_chapter', 'three_day_streak'];
+    const demoEvents: StudyEvent[] = [
+      { id: 'demo-revision', title: 'Physics revision check', date: addDaysDateOnly(2), type: 'revision' },
+      { id: 'demo-test', title: 'Math practice test', date: addDaysDateOnly(5), type: 'test' },
+    ];
+    const demoPractice: PracticeAttempt[] = [
+      {
+        id: 'demo-practice-1',
+        type: 'chapter',
+        subject: 'Physics',
+        chapter: 'Measurements',
+        date: new Date().toISOString(),
+        score: 4,
+        total: 5,
+        totalQuestions: 5,
+      },
+    ];
+
+    setProfileState(demoProfile);
+    setChapterCompletion(completion);
+    setScheduleSelectionConfigured(true);
+    setAiScheduleState(schedule);
+    setStreak(demoStreak.count);
+    setLastStudiedDate(demoStreak.lastDate);
+    setEarnedBadges(demoBadges);
+    setPendingBadges([]);
+    setEvents(demoEvents);
+    setTutorChatHistoryState([]);
+    setPracticeHistory(demoPractice);
+
+    saveJSON('matric_profile', demoProfile);
+    saveJSON('matric_chapters', completion);
+    saveJSON('matric_schedule_selection_configured', true);
+    saveJSON('matric_ai_schedule', schedule);
+    saveJSON('matric_streak', demoStreak);
+    saveJSON('matric_badges', demoBadges);
+    saveJSON('matric_events', demoEvents);
+    saveJSON('tutorChatHistory', []);
+    saveJSON('matric_practice_history', demoPractice);
   }, []);
 
   // ── Computed progress ─────────────────────────────────────────────────────
@@ -641,8 +732,14 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center px-6">
+        <div className="text-center space-y-3">
+          <div className="mx-auto h-9 w-9 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+          <div>
+            <p className="font-bold text-foreground">Matric Study Planner</p>
+            <p className="text-sm text-muted-foreground">Preparing your study space...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -654,6 +751,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
         setProfile,
         clearProfile,
         resetProgress,
+        loadDemoData,
         currentMode,
         simulatedMode,
         setSimulatedMode,

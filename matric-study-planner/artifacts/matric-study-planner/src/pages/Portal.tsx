@@ -5,6 +5,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { useAuthContext } from '@/context/AuthContext';
+import { useAppContext } from '@/context/AppContext';
 
 const AUTH_REDIRECT_ERROR_KEY = 'matric_auth_redirect_error';
 const AUTH_REDIRECT_PENDING_KEY = 'matric_auth_redirect_pending';
@@ -13,6 +14,7 @@ const GOOGLE_OPEN_TIMEOUT_MS = 15000;
 
 export default function Portal() {
   const { signInWithGoogle, continueAsGuest } = useAuthContext();
+  const { loadDemoData } = useAppContext();
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -58,7 +60,7 @@ export default function Portal() {
 
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="flex min-h-[100dvh] flex-col justify-center px-5 py-10">
+      <div className="flex min-h-[100dvh] flex-col justify-center px-5 py-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -78,6 +80,17 @@ export default function Portal() {
           </div>
 
           <Card className="p-5 space-y-3" noTap>
+            <Button
+              fullWidth
+              onClick={() => {
+                setError(null);
+                continueAsGuest();
+              }}
+              data-testid="button-continue-guest"
+            >
+              Continue as Guest
+            </Button>
+
             <button
               type="button"
               onClick={handleGoogleSignIn}
@@ -95,10 +108,11 @@ export default function Portal() {
               onClick={() => {
                 setError(null);
                 continueAsGuest();
+                loadDemoData();
               }}
-              data-testid="button-continue-guest"
+              data-testid="button-load-demo-data"
             >
-              Continue as Guest
+              Load Demo Data
             </Button>
 
             {error && (

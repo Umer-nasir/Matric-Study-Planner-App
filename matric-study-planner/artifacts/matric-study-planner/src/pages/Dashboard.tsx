@@ -4,6 +4,7 @@ import { Award, PartyPopper, BookCheck, RefreshCw, ChevronDown, Clock, AlertCirc
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
+import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ProgressRing } from '@/components/ProgressRing';
 import { ProgressBar } from '@/components/ProgressBar';
@@ -596,7 +597,7 @@ export default function Dashboard() {
       <ModeBanner />
 
       <motion.div
-        className="px-5 pt-10 pb-28 space-y-5"
+        className="px-5 pt-8 pb-28 space-y-5"
         variants={ctr}
         initial="hidden"
         animate="visible"
@@ -619,6 +620,9 @@ export default function Dashboard() {
               "{quote}"
             </motion.p>
           )}
+          <p className="text-xs text-muted-foreground mt-2">
+            {doneChapters} of {totalChapters} chapters completed · {selectedScheduleChapterCount} selected for your next plan
+          </p>
         </motion.div>
 
         {/* ── Mascot ──────────────────────────────────────────────────────── */}
@@ -802,7 +806,7 @@ export default function Dashboard() {
                         </div>
                       ))}
                       <p className="text-xs text-center text-muted-foreground pt-1">
-                        ✨ Crafting your personalised plan with Groq AI…
+                        Building your exam plan. This usually takes a few seconds...
                       </p>
                     </Card>
                   ) : todaysTasks.length === 0 ? (
@@ -810,8 +814,17 @@ export default function Dashboard() {
                       <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3">
                         <BookCheck className="text-primary" size={24} />
                       </div>
-                      <h3 className="font-semibold text-foreground mb-1">Nothing to do today!</h3>
-                      <p className="text-muted-foreground text-sm">All available chapters are checked off. Great work!</p>
+                      <h3 className="font-semibold text-foreground mb-1">Build today's plan</h3>
+                      <p className="text-muted-foreground text-sm mb-4">
+                        Select the chapters you want to study and generate a focused schedule.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={() => setShowChapterSelection(true)}
+                        className="min-h-[44px] rounded-2xl px-5"
+                      >
+                        Select Chapters
+                      </Button>
                     </Card>
                   ) : allTasksDone ? (
                     <motion.div

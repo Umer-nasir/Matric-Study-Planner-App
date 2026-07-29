@@ -212,7 +212,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="px-5 pt-10 pb-32 space-y-5">
+      <div className="px-5 pt-8 pb-32 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Profile</h1>

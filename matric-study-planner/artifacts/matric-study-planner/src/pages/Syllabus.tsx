@@ -349,7 +349,7 @@ export default function Syllabus() {
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto pb-24 bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
       <motion.div
-        className="px-5 pt-10 pb-6 space-y-5"
+        className="px-5 pt-8 pb-6 space-y-5"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

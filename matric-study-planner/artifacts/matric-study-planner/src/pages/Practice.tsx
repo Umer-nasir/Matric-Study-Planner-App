@@ -659,7 +659,7 @@ export default function Practice() {
 
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background pb-28 shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="px-5 pt-10 pb-6 space-y-5">
+      <div className="px-5 pt-8 pb-6 space-y-5">
         <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-lg">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -1341,7 +1341,9 @@ export default function Practice() {
             </div>
           )}
           {sortedHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No MCQ attempts yet.</p>
+            <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
+              Generate a chapter set, quiz, or revision session and your results will appear here.
+            </div>
           ) : (
             <div className="space-y-3">
               {sortedHistory.slice(0, 8).map((attempt) => (
