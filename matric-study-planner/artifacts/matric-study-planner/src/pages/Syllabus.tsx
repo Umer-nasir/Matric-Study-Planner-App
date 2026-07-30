@@ -111,7 +111,7 @@ type ExplanationState =
 
 function explanationCacheKey(subject: string, chapter: string, language: SubjectStudyLanguage): string {
   const parts = [language, subject.trim(), chapter.trim()].map((part) => encodeURIComponent(part.toLocaleLowerCase()));
-  return `matric_chapter_explanation_v4::${parts.join('::')}`;
+  return `matric_chapter_explanation_v5::${parts.join('::')}`;
 }
 
 function loadCachedExplanation(subject: string, chapter: string, language: SubjectStudyLanguage): ChapterExplanation | null {
@@ -518,7 +518,7 @@ export default function Syllabus() {
               {explanationError && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-semibold text-amber-900">
-                    Couldn't load explanation right now, try again.
+                    {explanationError}
                   </p>
                   <Button
                     className="mt-3"
