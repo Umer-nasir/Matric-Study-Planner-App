@@ -6,7 +6,6 @@ import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
 import {
-  getSubjectStudyLanguage,
   subjectDisplayName,
   subjectStarterQuestions,
 } from '@/lib/subjectLanguage';
@@ -70,18 +69,14 @@ function getAttachmentKind(file: File): PendingAttachment['kind'] {
   return file.type.startsWith('image/') ? 'image' : 'document';
 }
 
-function getInstantTutorReply(message: string, responseLanguage?: 'english' | 'urdu'): string | null {
+function getInstantTutorReply(message: string): string | null {
   const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, '');
   if (!/^(hi|hello|hey|salam|assalamualaikum|assalamu alaikum)$/.test(normalized)) {
     return null;
   }
 
-  if (responseLanguage === 'urdu') {
-    return 'السلام علیکم! اپنا میٹرک کا سوال بھیجیں، میں آسان اور امتحانی انداز میں جواب دوں گا۔';
-  }
   return 'Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.';
 }
-
 function createImageThumbnail(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -280,9 +275,7 @@ export default function AiTutor() {
     setPendingAttachment(null);
     setAttachmentError(null);
 
-    const responseLanguage =
-      selectedSubject === 'General' ? undefined : getSubjectStudyLanguage(selectedSubject, profile?.subjectLanguages);
-    const instantReply = !attachment ? getInstantTutorReply(trimmed, responseLanguage) : null;
+    const instantReply = !attachment ? getInstantTutorReply(trimmed) : null;
     if (instantReply) {
       setTutorChatHistory([
         ...optimisticHistory,
@@ -311,7 +304,6 @@ export default function AiTutor() {
         formData.append('file', attachment.file);
         if (selectedSubject !== 'General') formData.append('subject', selectedSubject);
         if (profile?.board) formData.append('board', profile.board);
-        if (responseLanguage) formData.append('responseLanguage', responseLanguage);
         data = await uploadTutorRequest(formData, setUploadProgress);
       } else {
         const res = await fetch(apiUrl('/api/tutor-chat'), {
@@ -321,7 +313,6 @@ export default function AiTutor() {
             message: trimmed,
             subject: selectedSubject === 'General' ? undefined : selectedSubject,
             board: profile?.board,
-            responseLanguage,
             currentMode,
             conversationHistory,
           }),

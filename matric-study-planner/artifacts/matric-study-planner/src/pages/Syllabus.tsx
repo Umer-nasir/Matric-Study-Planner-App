@@ -12,7 +12,6 @@ import type { ChapterState } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
 import {
   chapterDisplayName,
-  getSubjectStudyLanguage,
   subjectDirectionClass,
   subjectDisplayName,
   type SubjectStudyLanguage,
@@ -109,19 +108,19 @@ type ExplanationState =
   | { key: string; status: 'success'; explanation: ChapterExplanation; error: null }
   | { key: string; status: 'error'; explanation: null; error: string };
 
-function explanationCacheKey(subject: string, chapter: string, language: SubjectStudyLanguage): string {
-  const parts = [language, subject.trim(), chapter.trim()].map((part) => encodeURIComponent(part.toLocaleLowerCase()));
+function explanationCacheKey(subject: string, chapter: string): string {
+  const parts = [subject.trim(), chapter.trim()].map((part) => encodeURIComponent(part.toLocaleLowerCase()));
   return `matric_chapter_explanation_v5::${parts.join('::')}`;
 }
 
-function loadCachedExplanation(subject: string, chapter: string, language: SubjectStudyLanguage): ChapterExplanation | null {
+function loadCachedExplanation(subject: string, chapter: string): ChapterExplanation | null {
   try {
-    const key = explanationCacheKey(subject, chapter, language);
+    const key = explanationCacheKey(subject, chapter);
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ChapterExplanation;
     const text = `${parsed.summary}\n${parsed.keyPoints.join('\n')}`;
-    if (language === 'english' && containsUrduScript(text)) {
+    if (containsUrduScript(text)) {
       localStorage.removeItem(key);
       return null;
     }
@@ -310,10 +309,9 @@ export default function Syllabus() {
 
   function openExplanation(subject: string, chapter: string) {
     setSelectedChapter({ subject, chapter });
-    const language = getSubjectStudyLanguage(subject, profile!.subjectLanguages);
-    const key = explanationCacheKey(subject, chapter, language);
+    const key = explanationCacheKey(subject, chapter);
     abortActiveExplanationRequest();
-    const cached = loadCachedExplanation(subject, chapter, language);
+    const cached = loadCachedExplanation(subject, chapter);
     if (cached) {
       setExplanationState({ key, status: 'success', explanation: cached, error: null });
       return;
@@ -324,8 +322,7 @@ export default function Syllabus() {
 
   async function fetchExplanation(subject: string, chapter: string, refresh: boolean) {
     if (!profile) return;
-    const responseLanguage = getSubjectStudyLanguage(subject, profile.subjectLanguages);
-    const key = explanationCacheKey(subject, chapter, responseLanguage);
+    const key = explanationCacheKey(subject, chapter);
     const requestId = requestIdRef.current + 1;
     const controller = new AbortController();
     requestIdRef.current = requestId;
@@ -354,7 +351,6 @@ export default function Syllabus() {
           subject,
           chapter,
           board: profile.board,
-          responseLanguage,
         }),
       });
       const data = (await res.json()) as {
@@ -372,10 +368,10 @@ export default function Syllabus() {
         cachedAt: new Date().toISOString(),
       };
       const text = `${next.summary}\n${next.keyPoints.join('\n')}`;
-      if (responseLanguage === 'english' && containsUrduScript(text)) {
-        throw new Error('The explanation came back in Urdu. Please tap refresh and try again.');
+      if (containsUrduScript(text)) {
+        throw new Error('The explanation came back in a non-English script. Please tap refresh and try again.');
       }
-      localStorage.setItem(explanationCacheKey(subject, chapter, responseLanguage), JSON.stringify(next));
+      localStorage.setItem(explanationCacheKey(subject, chapter), JSON.stringify(next));
       if (isCurrentRequest()) {
         setExplanationState({ key, status: 'success', explanation: next, error: null });
       }
@@ -396,11 +392,8 @@ export default function Syllabus() {
     }
   }
 
-  const selectedLanguage = selectedChapter
-    ? getSubjectStudyLanguage(selectedChapter.subject, profile.subjectLanguages)
-    : null;
-  const selectedExplanationKey = selectedChapter && selectedLanguage
-    ? explanationCacheKey(selectedChapter.subject, selectedChapter.chapter, selectedLanguage)
+  const selectedExplanationKey = selectedChapter
+    ? explanationCacheKey(selectedChapter.subject, selectedChapter.chapter)
     : null;
   const currentExplanationState =
     selectedExplanationKey && explanationState?.key === selectedExplanationKey ? explanationState : null;

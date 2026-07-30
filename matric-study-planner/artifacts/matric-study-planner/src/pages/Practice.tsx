@@ -32,7 +32,6 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
 import {
   chapterDisplayName,
-  getSubjectStudyLanguage,
   subjectDirectionClass,
   subjectDisplayName,
 } from '@/lib/subjectLanguage';
@@ -41,7 +40,7 @@ import { rtlTextClass } from '@/lib/textDirection';
 type QuestionType = 'mcq' | 'short' | 'long' | 'definition';
 type PracticeMode = 'chapter' | 'quiz' | 'revision';
 type PracticeAttemptType = 'chapter' | 'quiz' | 'revision';
-type ChapterTarget = { subject: string; chapter: string; reason?: string; responseLanguage?: 'english' | 'urdu' };
+type ChapterTarget = { subject: string; chapter: string; reason?: string };
 
 type PracticeSet = {
   mcqs?: Array<{
@@ -77,7 +76,7 @@ const PRACTICE_MODES: Array<{ value: PracticeMode; label: string; icon: React.Co
 const EXAM_STYLE_OPTIONS: Array<{ value: ExamStyleTag; label: string; description: string }> = [
   { value: 'board-mcq', label: 'Board-Style MCQ', description: 'Four-option paper phrasing' },
   { value: 'past-paper', label: 'Past Paper Style', description: 'Looks like previous board exams' },
-  { value: 'tashreeh', label: 'Tashreeh', description: 'Structured explanation practice' },
+  { value: 'tashreeh', label: 'Explanation', description: 'Structured explanation practice' },
   { value: 'application', label: 'Application', description: 'Numerical or applied thinking' },
   { value: 'short-question', label: 'Short Question', description: 'Brief board-style answer' },
   { value: 'long-question', label: 'Long Question', description: 'Extended answer structure' },
@@ -277,11 +276,6 @@ export default function Practice() {
     const selected = new Set(quizSelectedKeys);
     return quizChapterTargets.filter((target) => selected.has(targetKey(target)));
   }, [quizChapterTargets, quizSelectedKeys]);
-  const withTargetLanguages = (targets: ChapterTarget[]) =>
-    targets.map((target) => ({
-      ...target,
-      responseLanguage: getSubjectStudyLanguage(target.subject, profile?.subjectLanguages),
-    }));
   const revisionItems = useMemo<ChapterTarget[]>(() => {
     const latestByChapter = new Map<string, PracticeAttempt>();
     for (const attempt of practiceHistory) {
@@ -469,7 +463,7 @@ export default function Practice() {
     setActiveSessionType(overrides?.type ?? 'chapter');
     setActiveExamStyle(targetExamStyle);
     setActiveRevisionReasons(overrides?.revisionReasons ?? []);
-    const requestTargets = withTargetLanguages(overrides?.targets ?? [{ subject: targetSubject, chapter: targetChapter }]);
+    const requestTargets = overrides?.targets ?? [{ subject: targetSubject, chapter: targetChapter }];
     setActiveTargets(requestTargets);
     setActiveAttemptSubject(overrides?.type === 'revision' ? 'Targeted Revision' : targetSubject);
     setActiveAttemptChapter(overrides?.type === 'revision' ? `${overrides.targets?.length ?? 1} chapters` : targetChapter);
@@ -491,7 +485,6 @@ export default function Practice() {
           subject: targetSubject,
           chapter: targetChapter,
           board: profile.board,
-          responseLanguage: getSubjectStudyLanguage(targetSubject, profile.subjectLanguages),
           questionTypes: targetQuestionTypes,
           examStyle: targetExamStyle,
           countPerType,
@@ -560,9 +553,8 @@ export default function Practice() {
           subject: quizSubject,
           chapter: quizSubject === 'All Subjects' ? 'Mixed quiz' : 'Selected chapters quiz',
           board: profile.board,
-          responseLanguage: quizSubject === 'All Subjects' ? undefined : getSubjectStudyLanguage(quizSubject, profile.subjectLanguages),
           mode: 'quiz',
-          chapters: withTargetLanguages(selectedQuizTargets),
+          chapters: selectedQuizTargets,
           questionTypes: ['mcq'],
           examStyle: 'board-mcq',
           countPerType: quizLength,
@@ -627,7 +619,6 @@ export default function Practice() {
           subject,
           chapter,
           board: profile.board,
-          responseLanguage: getSubjectStudyLanguage(subject, profile.subjectLanguages),
           term: definition.term,
           expectedDefinition: definition.definition,
           studentAnswer,

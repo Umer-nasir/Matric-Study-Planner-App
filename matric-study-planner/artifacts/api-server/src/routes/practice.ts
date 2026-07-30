@@ -1,11 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
-import {
-  getLanguageInstruction,
-  getSubjectPersona,
-  normalizeResponseLanguage,
-  type ResponseLanguage,
-} from "../config/subjectPersonas";
+import { ENGLISH_ONLY_INSTRUCTION, hasUrduScript } from "../config/genericAi";
 
 const router: IRouter = Router();
 
@@ -17,14 +12,12 @@ interface PracticeTarget {
   subject?: string;
   chapter?: string;
   reason?: string;
-  responseLanguage?: string;
 }
 
 interface PracticeRequestBody {
   subject?: string;
   chapter?: string;
   board?: string;
-  responseLanguage?: string;
   questionTypes?: QuestionType[];
   countPerType?: number;
   totalQuestions?: number;
@@ -37,14 +30,12 @@ interface CheckDefinitionRequestBody {
   subject?: string;
   chapter?: string;
   board?: string;
-  responseLanguage?: string;
   term?: string;
   expectedDefinition?: string;
   studentAnswer?: string;
 }
 
 const FAST_PRACTICE_MODEL = process.env["GROQ_PRACTICE_FAST_MODEL"] ?? "llama-3.1-8b-instant";
-const DEEP_PRACTICE_MODEL = process.env["GROQ_PRACTICE_DEEP_MODEL"] ?? "llama-3.3-70b-versatile";
 
 function isQuestionType(value: unknown): value is QuestionType {
   return value === "mcq" || value === "short" || value === "long" || value === "definition";
@@ -68,7 +59,7 @@ function examStyleInstruction(style: ExamStyleTag): string {
     case "board-mcq":
       return "Use Board-Style MCQ format: concise stem, four plausible options, one clear correct answer, and board-typical wording.";
     case "tashreeh":
-      return "Use Tashreeh style where suitable: ask for explanation/interpretation in the structured manner used in Urdu-medium board papers.";
+      return "Use Explanation Practice style: ask for interpretation or explanation in clear English.";
     case "application":
       return "Use Application style: prefer applied, numerical, diagram-based, or real-scenario problem solving instead of simple recall.";
     case "short-question":
@@ -112,29 +103,20 @@ function buildSystemPrompt({
   mode,
   targets,
   totalQuestions,
-  responseLanguage,
   examStyle,
 }: {
   subject: string;
   chapter: string;
   board: string;
   mode: PracticeMode;
-  targets: Array<{ subject: string; chapter: string; reason?: string; responseLanguage?: string }>;
+  targets: Array<{ subject: string; chapter: string; reason?: string }>;
   totalQuestions?: number;
-  responseLanguage: ResponseLanguage;
   examStyle: ExamStyleTag;
 }): string {
   const targetText =
     targets.length > 1
       ? targets
-          .map((target) => {
-            const targetLanguage = normalizeResponseLanguage(target.responseLanguage, target.subject);
-            const languageNote =
-              targetLanguage === "urdu"
-                ? "write this target's questions and explanations in Urdu"
-                : "write this target's questions and explanations in English";
-            return `- ${target.subject}: ${target.chapter} (${languageNote})`;
-          })
+          .map((target) => `- ${target.subject}: ${target.chapter}`)
           .join("\n")
       : `- ${subject}: ${chapter}`;
   const distribution =
@@ -149,7 +131,6 @@ function buildSystemPrompt({
     mode === "revision"
       ? "This is revision mode. Mix question styles for active recall and keep questions exam-relevant."
       : "";
-  const persona = getSubjectPersona(subject);
 
   return `You are creating exam practice questions for a Matric-level (grade 9-10) student in Pakistan, following the ${board} syllabus. Generate questions strictly from these target chapters:
 ${targetText}
@@ -157,8 +138,7 @@ ${distribution}
 ${quizInstruction}
 ${revisionInstruction}
 ${examStyleInstruction(examStyle)}
-${getLanguageInstruction(responseLanguage)}
-${persona ? `\n${persona}` : ""}
+${ENGLISH_ONLY_INSTRUCTION}
 Match the difficulty and phrasing style of real board exam papers. Respond ONLY with valid JSON, no markdown, no explanation, in this exact structure:
 {
   "mcqs": [{ "question": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0, "explanation": "..." }],
@@ -169,12 +149,15 @@ Match the difficulty and phrasing style of real board exam papers. Respond ONLY 
 Only include the arrays for question types that were requested; omit others entirely.`;
 }
 
+function containsBlockedScript(value: unknown): boolean {
+  return hasUrduScript(JSON.stringify(value));
+}
+
 router.post("/generate-practice", async (req: Request, res: Response): Promise<void> => {
   const {
     subject,
     chapter,
     board = "Punjab Board",
-    responseLanguage,
     questionTypes,
     countPerType = 3,
     totalQuestions,
@@ -198,7 +181,6 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             subject: item.subject!.trim(),
             chapter: item.chapter!.trim(),
             reason: typeof item.reason === "string" ? item.reason.trim() : undefined,
-            responseLanguage: typeof item.responseLanguage === "string" ? item.responseLanguage.trim() : undefined,
           }))
       : subject && chapter
       ? [{ subject: subject.trim(), chapter: chapter.trim() }]
@@ -231,8 +213,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
   }
 
   const groq = new Groq({ apiKey });
-  const language = normalizeResponseLanguage(responseLanguage, subject);
-  const model = language === "urdu" ? DEEP_PRACTICE_MODEL : FAST_PRACTICE_MODEL;
+  const model = FAST_PRACTICE_MODEL;
   const safeExamStyle = normalizeExamStyle(examStyle);
 
   try {
@@ -250,7 +231,6 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             mode,
             targets,
             totalQuestions: safeTotalQuestions,
-            responseLanguage: language,
             examStyle: safeExamStyle,
           }),
         },
@@ -265,7 +245,6 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             questionTypes,
             countPerType: safeCount,
             totalQuestions: safeTotalQuestions,
-            responseLanguage: language,
             examStyle: safeExamStyle,
           }),
         },
@@ -276,6 +255,11 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
 
     if (!data || typeof data !== "object") {
       throw new Error("Practice response was not a JSON object");
+    }
+
+    if (containsBlockedScript(data)) {
+      res.status(422).json({ ok: false, error: "The AI returned non-English practice content. Please retry." });
+      return;
     }
 
     res.json({ ok: true, data });
@@ -290,7 +274,6 @@ router.post("/check-definition", async (req: Request, res: Response): Promise<vo
     subject,
     chapter,
     board = "Punjab Board",
-    responseLanguage,
     term,
     expectedDefinition,
     studentAnswer,
@@ -324,18 +307,17 @@ router.post("/check-definition", async (req: Request, res: Response): Promise<vo
   }
 
   const groq = new Groq({ apiKey });
-  const language = normalizeResponseLanguage(responseLanguage, subject);
 
   try {
     const completion = await groq.chat.completions.create({
-      model: language === "urdu" ? DEEP_PRACTICE_MODEL : FAST_PRACTICE_MODEL,
+      model: FAST_PRACTICE_MODEL,
       temperature: 0.1,
       max_tokens: 500,
       messages: [
         {
           role: "system",
           content: `You are checking a Matric-level student's definition answer for ${board}. Be fair but exam-focused. If the student's answer contains the core meaning, mark it correct even if wording is different.
-${getLanguageInstruction(language)}
+${ENGLISH_ONLY_INSTRUCTION}
 Respond ONLY with valid JSON in this exact shape: {"correct":true,"feedback":"...","modelAnswer":"..."}. Feedback must be short and helpful.`,
         },
         {
@@ -356,6 +338,11 @@ Respond ONLY with valid JSON in this exact shape: {"correct":true,"feedback":"..
       feedback?: unknown;
       modelAnswer?: unknown;
     };
+
+    if (containsBlockedScript(data)) {
+      res.status(422).json({ ok: false, error: "The AI returned non-English definition feedback. Please retry." });
+      return;
+    }
 
     res.json({
       ok: true,
