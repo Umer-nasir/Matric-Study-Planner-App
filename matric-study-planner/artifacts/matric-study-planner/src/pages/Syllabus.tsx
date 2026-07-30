@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { AlertCircle, BookOpen, CalendarCheck, ChevronDown, Info, Loader2, RefreshCw, X } from 'lucide-react';
@@ -103,8 +103,15 @@ interface SelectedChapter {
   chapter: string;
 }
 
+type ExplanationState =
+  | { key: string; status: 'idle'; explanation: null; error: null }
+  | { key: string; status: 'loading'; explanation: ChapterExplanation | null; error: null }
+  | { key: string; status: 'success'; explanation: ChapterExplanation; error: null }
+  | { key: string; status: 'error'; explanation: null; error: string };
+
 function explanationCacheKey(subject: string, chapter: string, language: SubjectStudyLanguage): string {
-  return `matric_chapter_explanation_v3::${language}::${subject}::${chapter}`.toLowerCase();
+  const parts = [language, subject.trim(), chapter.trim()].map((part) => encodeURIComponent(part.toLocaleLowerCase()));
+  return `matric_chapter_explanation_v4::${parts.join('::')}`;
 }
 
 function loadCachedExplanation(subject: string, chapter: string, language: SubjectStudyLanguage): ChapterExplanation | null {
@@ -258,9 +265,16 @@ export default function Syllabus() {
   const { profile, chapterCompletion, toggleChapter, overallProgress, practiceHistory } = useAppContext();
   const [, setLocation] = useLocation();
   const [selectedChapter, setSelectedChapter] = useState<SelectedChapter | null>(null);
-  const [explanation, setExplanation] = useState<ChapterExplanation | null>(null);
-  const [isExplanationLoading, setIsExplanationLoading] = useState(false);
-  const [explanationError, setExplanationError] = useState<string | null>(null);
+  const [explanationState, setExplanationState] = useState<ExplanationState | null>(null);
+  const activeRequestRef = useRef<{ key: string; id: number; controller: AbortController } | null>(null);
+  const requestIdRef = useRef(0);
+
+  function abortActiveExplanationRequest() {
+    activeRequestRef.current?.controller.abort();
+    activeRequestRef.current = null;
+  }
+
+  useEffect(() => () => abortActiveExplanationRequest(), []);
 
   // Sort subjects by least progress first
   const sortedSubjects = useMemo(() => {
@@ -288,30 +302,54 @@ export default function Syllabus() {
 
   if (!profile) return null;
 
-  async function openExplanation(subject: string, chapter: string) {
+  function closeExplanation() {
+    abortActiveExplanationRequest();
+    setSelectedChapter(null);
+    setExplanationState(null);
+  }
+
+  function openExplanation(subject: string, chapter: string) {
     setSelectedChapter({ subject, chapter });
-    setExplanation(null);
-    setExplanationError(null);
     const language = getSubjectStudyLanguage(subject, profile!.subjectLanguages);
+    const key = explanationCacheKey(subject, chapter, language);
+    abortActiveExplanationRequest();
     const cached = loadCachedExplanation(subject, chapter, language);
     if (cached) {
-      setExplanation(cached);
+      setExplanationState({ key, status: 'success', explanation: cached, error: null });
       return;
     }
-    await fetchExplanation(subject, chapter, false);
+    setExplanationState({ key, status: 'idle', explanation: null, error: null });
+    void fetchExplanation(subject, chapter, false);
   }
 
   async function fetchExplanation(subject: string, chapter: string, refresh: boolean) {
     if (!profile) return;
-    setIsExplanationLoading(true);
-    setExplanationError(null);
-    if (refresh) setExplanation(null);
+    const responseLanguage = getSubjectStudyLanguage(subject, profile.subjectLanguages);
+    const key = explanationCacheKey(subject, chapter, responseLanguage);
+    const requestId = requestIdRef.current + 1;
+    const controller = new AbortController();
+    requestIdRef.current = requestId;
+
+    abortActiveExplanationRequest();
+    activeRequestRef.current = { key, id: requestId, controller };
+
+    setExplanationState((current) => ({
+      key,
+      status: 'loading',
+      explanation: refresh || current?.key !== key ? null : current.explanation,
+      error: null,
+    }));
+
+    const isCurrentRequest = () =>
+      activeRequestRef.current?.key === key &&
+      activeRequestRef.current.id === requestId &&
+      !controller.signal.aborted;
 
     try {
-      const responseLanguage = getSubjectStudyLanguage(subject, profile.subjectLanguages);
       const res = await fetch(apiUrl('/api/explain-chapter'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           subject,
           chapter,
@@ -337,14 +375,38 @@ export default function Syllabus() {
       if (responseLanguage === 'english' && containsUrduScript(text)) {
         throw new Error('The explanation came back in Urdu. Please tap refresh and try again.');
       }
-      setExplanation(next);
       localStorage.setItem(explanationCacheKey(subject, chapter, responseLanguage), JSON.stringify(next));
+      if (isCurrentRequest()) {
+        setExplanationState({ key, status: 'success', explanation: next, error: null });
+      }
     } catch (err) {
-      setExplanationError(err instanceof Error ? err.message : "Couldn't load explanation right now, try again.");
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (isCurrentRequest()) {
+        setExplanationState({
+          key,
+          status: 'error',
+          explanation: null,
+          error: err instanceof Error ? err.message : "Couldn't load explanation right now, try again.",
+        });
+      }
     } finally {
-      setIsExplanationLoading(false);
+      if (isCurrentRequest()) {
+        activeRequestRef.current = null;
+      }
     }
   }
+
+  const selectedLanguage = selectedChapter
+    ? getSubjectStudyLanguage(selectedChapter.subject, profile.subjectLanguages)
+    : null;
+  const selectedExplanationKey = selectedChapter && selectedLanguage
+    ? explanationCacheKey(selectedChapter.subject, selectedChapter.chapter, selectedLanguage)
+    : null;
+  const currentExplanationState =
+    selectedExplanationKey && explanationState?.key === selectedExplanationKey ? explanationState : null;
+  const explanation = currentExplanationState?.explanation ?? null;
+  const isExplanationLoading = currentExplanationState?.status === 'loading';
+  const explanationError = currentExplanationState?.status === 'error' ? currentExplanationState.error : null;
 
   return (
     <div className="min-h-[100dvh] max-w-[480px] mx-auto pb-24 bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
@@ -404,7 +466,7 @@ export default function Syllabus() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setSelectedChapter(null)}
+            onClick={closeExplanation}
           >
             <motion.div
               initial={{ y: 60, opacity: 0 }}
@@ -436,7 +498,7 @@ export default function Syllabus() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setSelectedChapter(null)}
+                    onClick={closeExplanation}
                     className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-muted-foreground"
                     aria-label="Close chapter explanation"
                   >
@@ -501,7 +563,7 @@ export default function Syllabus() {
                         subject: selectedChapter.subject,
                         chapter: selectedChapter.chapter,
                       });
-                      setSelectedChapter(null);
+                      closeExplanation();
                       setLocation(`/practice?${params.toString()}`);
                     }}
                   >

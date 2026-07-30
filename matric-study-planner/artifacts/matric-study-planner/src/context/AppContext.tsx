@@ -55,6 +55,7 @@ export interface TutorChatMessage {
 export interface PracticeAttempt {
   id: string;
   type?: 'chapter' | 'quiz' | 'revision';
+  examStyle?: ExamStyleTag;
   subject: string;
   chapter: string;
   date: string;
@@ -81,6 +82,38 @@ export interface PracticeAttempt {
   }>;
 }
 
+export type ExamStyleTag =
+  | 'past-paper'
+  | 'board-mcq'
+  | 'short-question'
+  | 'long-question'
+  | 'tashreeh'
+  | 'application';
+
+export interface ReminderSettings {
+  enabled: boolean;
+  time: string;
+  lastShownDate?: string;
+}
+
+export interface BackupData {
+  version: 1;
+  exportedAt: string;
+  data: {
+    profile: Profile | null;
+    chapterCompletion: ChapterCompletion;
+    scheduleSelectionConfigured: boolean;
+    streak: { count: number; lastDate: string | null };
+    earnedBadges: string[];
+    aiSchedule: AiSchedule | null;
+    tutorChatHistory: TutorChatMessage[];
+    practiceHistory: PracticeAttempt[];
+    events: StudyEvent[];
+    reminderSettings: ReminderSettings;
+    definitionChecks: unknown;
+  };
+}
+
 export interface AppContextType {
   // Profile
   profile: Profile | null;
@@ -88,6 +121,8 @@ export interface AppContextType {
   clearProfile: () => void;
   resetProgress: () => void;
   loadDemoData: () => void;
+  exportBackupData: () => BackupData;
+  restoreBackupData: (backup: unknown) => void;
 
   // Mode
   currentMode: StudyMode;
@@ -135,6 +170,11 @@ export interface AppContextType {
   events: StudyEvent[];
   addEvent: (event: Omit<StudyEvent, 'id'>) => void;
   removeEvent: (id: string) => void;
+
+  // Reminders
+  reminderSettings: ReminderSettings;
+  setReminderSettings: (settings: ReminderSettings) => void;
+  markReminderShown: (date: string) => void;
 }
 
 // ─── Mode calculation ─────────────────────────────────────────────────────────
@@ -277,6 +317,7 @@ function buildDemoSchedule(): AiSchedule {
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+const DEFAULT_REMINDER_SETTINGS: ReminderSettings = { enabled: false, time: '18:00' };
 
 export function AppContextProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -292,6 +333,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   const [aiSchedule, setAiScheduleState] = useState<AiSchedule | null>(null);
   const [tutorChatHistory, setTutorChatHistoryState] = useState<TutorChatMessage[]>([]);
   const [practiceHistory, setPracticeHistory] = useState<PracticeAttempt[]>([]);
+  const [reminderSettings, setReminderSettingsState] = useState<ReminderSettings>(DEFAULT_REMINDER_SETTINGS);
 
   // Load all persisted data on mount
   useEffect(() => {
@@ -332,6 +374,13 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
     const storedPracticeHistory = loadJSON<PracticeAttempt[]>('matric_practice_history', []);
     setPracticeHistory(storedPracticeHistory);
+
+    const storedReminders = loadJSON<ReminderSettings>('matric_reminder_settings', DEFAULT_REMINDER_SETTINGS);
+    setReminderSettingsState({
+      enabled: Boolean(storedReminders.enabled),
+      time: storedReminders.time || DEFAULT_REMINDER_SETTINGS.time,
+      lastShownDate: storedReminders.lastShownDate,
+    });
 
     setIsLoaded(true);
   }, []);
@@ -396,6 +445,95 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
     setPracticeHistory([]);
     localStorage.removeItem('matric_practice_history');
+
+    setEvents([]);
+    localStorage.removeItem('matric_events');
+
+    setReminderSettingsState(DEFAULT_REMINDER_SETTINGS);
+    localStorage.removeItem('matric_reminder_settings');
+    localStorage.removeItem('matric_definition_checks');
+  }, []);
+
+  const exportBackupData = useCallback((): BackupData => ({
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      profile,
+      chapterCompletion,
+      scheduleSelectionConfigured,
+      streak: { count: streak, lastDate: lastStudiedDate },
+      earnedBadges,
+      aiSchedule,
+      tutorChatHistory,
+      practiceHistory,
+      events,
+      reminderSettings,
+      definitionChecks: loadJSON<unknown>('matric_definition_checks', {}),
+    },
+  }), [
+    aiSchedule,
+    chapterCompletion,
+    earnedBadges,
+    events,
+    lastStudiedDate,
+    practiceHistory,
+    profile,
+    reminderSettings,
+    scheduleSelectionConfigured,
+    streak,
+    tutorChatHistory,
+  ]);
+
+  const restoreBackupData = useCallback((backup: unknown) => {
+    const candidate = backup as BackupData;
+    if (!candidate || typeof candidate !== 'object' || candidate.version !== 1 || !candidate.data) {
+      throw new Error('This backup file is invalid or from an unsupported version.');
+    }
+
+    const restoredProfile = candidate.data.profile ? normalizeProfile(candidate.data.profile) : null;
+    const restoredCompletion =
+      restoredProfile?.subjects
+        ? normalizeCompletionForSubjects(restoredProfile.subjects, candidate.data.chapterCompletion ?? {})
+        : {};
+    const restoredStreak = candidate.data.streak ?? { count: 0, lastDate: null };
+    const restoredReminders = candidate.data.reminderSettings ?? DEFAULT_REMINDER_SETTINGS;
+
+    setProfileState(restoredProfile);
+    restoredProfile ? saveJSON('matric_profile', restoredProfile) : localStorage.removeItem('matric_profile');
+
+    setChapterCompletion(restoredCompletion);
+    saveJSON('matric_chapters', restoredCompletion);
+
+    setScheduleSelectionConfigured(Boolean(candidate.data.scheduleSelectionConfigured));
+    saveJSON('matric_schedule_selection_configured', Boolean(candidate.data.scheduleSelectionConfigured));
+
+    setStreak(Number(restoredStreak.count) || 0);
+    setLastStudiedDate(restoredStreak.lastDate ?? null);
+    saveJSON('matric_streak', { count: Number(restoredStreak.count) || 0, lastDate: restoredStreak.lastDate ?? null });
+
+    setEarnedBadges(Array.isArray(candidate.data.earnedBadges) ? candidate.data.earnedBadges : []);
+    saveJSON('matric_badges', Array.isArray(candidate.data.earnedBadges) ? candidate.data.earnedBadges : []);
+
+    setAiScheduleState(candidate.data.aiSchedule ?? null);
+    candidate.data.aiSchedule ? saveJSON('matric_ai_schedule', candidate.data.aiSchedule) : localStorage.removeItem('matric_ai_schedule');
+
+    setTutorChatHistoryState(Array.isArray(candidate.data.tutorChatHistory) ? candidate.data.tutorChatHistory : []);
+    saveJSON('tutorChatHistory', Array.isArray(candidate.data.tutorChatHistory) ? candidate.data.tutorChatHistory : []);
+
+    setPracticeHistory(Array.isArray(candidate.data.practiceHistory) ? candidate.data.practiceHistory : []);
+    saveJSON('matric_practice_history', Array.isArray(candidate.data.practiceHistory) ? candidate.data.practiceHistory : []);
+
+    setEvents(Array.isArray(candidate.data.events) ? candidate.data.events : []);
+    saveJSON('matric_events', Array.isArray(candidate.data.events) ? candidate.data.events : []);
+
+    const nextReminders = {
+      enabled: Boolean(restoredReminders.enabled),
+      time: restoredReminders.time || DEFAULT_REMINDER_SETTINGS.time,
+      lastShownDate: restoredReminders.lastShownDate,
+    };
+    setReminderSettingsState(nextReminders);
+    saveJSON('matric_reminder_settings', nextReminders);
+    saveJSON('matric_definition_checks', candidate.data.definitionChecks ?? {});
   }, []);
 
   const loadDemoData = useCallback(() => {
@@ -430,14 +568,16 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       {
         id: 'demo-practice-1',
         type: 'chapter',
+        examStyle: 'board-mcq',
         subject: 'Physics',
         chapter: 'Measurements',
         date: new Date().toISOString(),
-        score: 4,
+        score: 2,
         total: 5,
         totalQuestions: 5,
       },
     ];
+    const demoReminders: ReminderSettings = { enabled: true, time: '18:00' };
 
     setProfileState(demoProfile);
     setChapterCompletion(completion);
@@ -450,6 +590,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     setEvents(demoEvents);
     setTutorChatHistoryState([]);
     setPracticeHistory(demoPractice);
+    setReminderSettingsState(demoReminders);
 
     saveJSON('matric_profile', demoProfile);
     saveJSON('matric_chapters', completion);
@@ -460,6 +601,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     saveJSON('matric_events', demoEvents);
     saveJSON('tutorChatHistory', []);
     saveJSON('matric_practice_history', demoPractice);
+    saveJSON('matric_reminder_settings', demoReminders);
   }, []);
 
   // ── Computed progress ─────────────────────────────────────────────────────
@@ -730,6 +872,24 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     [events],
   );
 
+  const setReminderSettings = useCallback((settings: ReminderSettings) => {
+    const next = {
+      enabled: Boolean(settings.enabled),
+      time: settings.time || DEFAULT_REMINDER_SETTINGS.time,
+      lastShownDate: settings.lastShownDate,
+    };
+    setReminderSettingsState(next);
+    saveJSON('matric_reminder_settings', next);
+  }, []);
+
+  const markReminderShown = useCallback((date: string) => {
+    setReminderSettingsState((prev) => {
+      const next = { ...prev, lastShownDate: date };
+      saveJSON('matric_reminder_settings', next);
+      return next;
+    });
+  }, []);
+
   if (!isLoaded) {
     return (
       <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center px-6">
@@ -752,6 +912,8 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
         clearProfile,
         resetProgress,
         loadDemoData,
+        exportBackupData,
+        restoreBackupData,
         currentMode,
         simulatedMode,
         setSimulatedMode,
@@ -781,6 +943,9 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
         events,
         addEvent,
         removeEvent,
+        reminderSettings,
+        setReminderSettings,
+        markReminderShown,
       }}
     >
       {children}

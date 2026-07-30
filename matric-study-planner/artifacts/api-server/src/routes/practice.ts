@@ -11,6 +11,7 @@ const router: IRouter = Router();
 
 type QuestionType = "mcq" | "short" | "long" | "definition";
 type PracticeMode = "chapter" | "quiz" | "revision";
+type ExamStyleTag = "past-paper" | "board-mcq" | "short-question" | "long-question" | "tashreeh" | "application";
 
 interface PracticeTarget {
   subject?: string;
@@ -29,6 +30,7 @@ interface PracticeRequestBody {
   totalQuestions?: number;
   mode?: PracticeMode;
   chapters?: PracticeTarget[];
+  examStyle?: ExamStyleTag;
 }
 
 interface CheckDefinitionRequestBody {
@@ -46,6 +48,36 @@ const DEEP_PRACTICE_MODEL = process.env["GROQ_PRACTICE_DEEP_MODEL"] ?? "llama-3.
 
 function isQuestionType(value: unknown): value is QuestionType {
   return value === "mcq" || value === "short" || value === "long" || value === "definition";
+}
+
+function normalizeExamStyle(value: unknown): ExamStyleTag {
+  return value === "past-paper" ||
+    value === "board-mcq" ||
+    value === "short-question" ||
+    value === "long-question" ||
+    value === "tashreeh" ||
+    value === "application"
+    ? value
+    : "board-mcq";
+}
+
+function examStyleInstruction(style: ExamStyleTag): string {
+  switch (style) {
+    case "past-paper":
+      return "Use past-paper style: board-paper wording, familiar command words, and direct exam phrasing.";
+    case "board-mcq":
+      return "Use Board-Style MCQ format: concise stem, four plausible options, one clear correct answer, and board-typical wording.";
+    case "tashreeh":
+      return "Use Tashreeh style where suitable: ask for explanation/interpretation in the structured manner used in Urdu-medium board papers.";
+    case "application":
+      return "Use Application style: prefer applied, numerical, diagram-based, or real-scenario problem solving instead of simple recall.";
+    case "short-question":
+      return "Use Short Question style: answerable in 2-4 exam-relevant lines with precise keywords.";
+    case "long-question":
+      return "Use Long Question style: prompts should require organized headings, steps, or explanation suitable for a board long answer.";
+    default:
+      return "Use board-style exam phrasing.";
+  }
 }
 
 function stripJson(raw: string): string {
@@ -81,6 +113,7 @@ function buildSystemPrompt({
   targets,
   totalQuestions,
   responseLanguage,
+  examStyle,
 }: {
   subject: string;
   chapter: string;
@@ -89,6 +122,7 @@ function buildSystemPrompt({
   targets: Array<{ subject: string; chapter: string; reason?: string; responseLanguage?: string }>;
   totalQuestions?: number;
   responseLanguage: ResponseLanguage;
+  examStyle: ExamStyleTag;
 }): string {
   const targetText =
     targets.length > 1
@@ -122,6 +156,7 @@ ${targetText}
 ${distribution}
 ${quizInstruction}
 ${revisionInstruction}
+${examStyleInstruction(examStyle)}
 ${getLanguageInstruction(responseLanguage)}
 ${persona ? `\n${persona}` : ""}
 Match the difficulty and phrasing style of real board exam papers. Respond ONLY with valid JSON, no markdown, no explanation, in this exact structure:
@@ -145,6 +180,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
     totalQuestions,
     mode = "chapter",
     chapters,
+    examStyle,
   } = req.body as PracticeRequestBody;
 
   const targets =
@@ -197,6 +233,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
   const groq = new Groq({ apiKey });
   const language = normalizeResponseLanguage(responseLanguage, subject);
   const model = language === "urdu" ? DEEP_PRACTICE_MODEL : FAST_PRACTICE_MODEL;
+  const safeExamStyle = normalizeExamStyle(examStyle);
 
   try {
     const completion = await groq.chat.completions.create({
@@ -214,6 +251,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             targets,
             totalQuestions: safeTotalQuestions,
             responseLanguage: language,
+            examStyle: safeExamStyle,
           }),
         },
         {
@@ -228,6 +266,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
             countPerType: safeCount,
             totalQuestions: safeTotalQuestions,
             responseLanguage: language,
+            examStyle: safeExamStyle,
           }),
         },
       ],

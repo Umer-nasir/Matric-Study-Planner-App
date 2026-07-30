@@ -27,7 +27,7 @@ import { Card } from '@/components/Card';
 import { ModeIndicator } from '@/components/ModeIndicator';
 import { SubjectIcon } from '@/components/SubjectIcon';
 import { useAppContext } from '@/context/AppContext';
-import type { PracticeAttempt } from '@/context/AppContext';
+import type { ExamStyleTag, PracticeAttempt } from '@/context/AppContext';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
 import {
@@ -73,6 +73,19 @@ const PRACTICE_MODES: Array<{ value: PracticeMode; label: string; icon: React.Co
   { value: 'quiz', label: 'Quiz', icon: Clock },
   { value: 'revision', label: 'Revision', icon: Brain },
 ];
+
+const EXAM_STYLE_OPTIONS: Array<{ value: ExamStyleTag; label: string; description: string }> = [
+  { value: 'board-mcq', label: 'Board-Style MCQ', description: 'Four-option paper phrasing' },
+  { value: 'past-paper', label: 'Past Paper Style', description: 'Looks like previous board exams' },
+  { value: 'tashreeh', label: 'Tashreeh', description: 'Structured explanation practice' },
+  { value: 'application', label: 'Application', description: 'Numerical or applied thinking' },
+  { value: 'short-question', label: 'Short Question', description: 'Brief board-style answer' },
+  { value: 'long-question', label: 'Long Question', description: 'Extended answer structure' },
+];
+
+function examStyleLabel(style: ExamStyleTag | undefined): string {
+  return EXAM_STYLE_OPTIONS.find((item) => item.value === style)?.label ?? 'Board Style';
+}
 
 const HISTORY_TYPE_STYLES: Record<PracticeAttemptType, string> = {
   chapter: 'bg-secondary text-muted-foreground',
@@ -144,6 +157,7 @@ export default function Practice() {
   const [selectedAttempt, setSelectedAttempt] = useState<PracticeAttempt | null>(null);
   const [handledChapterPrefill, setHandledChapterPrefill] = useState(false);
   const [questionTypes, setQuestionTypes] = useState<QuestionType[]>(defaultTypes);
+  const [examStyle, setExamStyle] = useState<ExamStyleTag>('board-mcq');
   const [countPerType] = useState(3);
   const [practiceSet, setPracticeSet] = useState<PracticeSet | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -161,6 +175,7 @@ export default function Practice() {
   const [celebrate, setCelebrate] = useState(false);
   const [recordedMcqSetKey, setRecordedMcqSetKey] = useState<string | null>(null);
   const [activeSessionType, setActiveSessionType] = useState<PracticeAttemptType>('chapter');
+  const [activeExamStyle, setActiveExamStyle] = useState<ExamStyleTag>('board-mcq');
   const [activeRevisionReasons, setActiveRevisionReasons] = useState<string[]>([]);
   const [activeTargets, setActiveTargets] = useState<ChapterTarget[]>([]);
   const [activeAttemptSubject, setActiveAttemptSubject] = useState('');
@@ -326,6 +341,7 @@ export default function Practice() {
     const pct = Math.round((mcqScore / currentMcqs.length) * 100);
     addPracticeAttempt({
       type: activeSessionType,
+      examStyle: activeExamStyle,
       subject: attemptSubject,
       chapter: attemptChapter,
       score: mcqScore,
@@ -355,6 +371,7 @@ export default function Practice() {
     }
   }, [
     activeRevisionReasons,
+    activeExamStyle,
     activeSessionType,
     activeTargets,
     activeAttemptChapter,
@@ -390,6 +407,7 @@ export default function Practice() {
     if (recordedQuizKey === setKey) return;
     addPracticeAttempt({
       type: 'quiz',
+      examStyle: 'board-mcq',
       subject: quizSubject,
       chapter: quizSubject === 'All Subjects' ? 'Mixed quiz' : `${selectedQuizTargets.length} selected chapters`,
       score: quizScore,
@@ -439,14 +457,17 @@ export default function Practice() {
     targets?: ChapterTarget[];
     revisionReasons?: string[];
     questionTypes?: QuestionType[];
+    examStyle?: ExamStyleTag;
   }) {
     const targetSubject = overrides?.subject ?? subject;
     const targetChapter = overrides?.chapter ?? chapter;
     const targetQuestionTypes = overrides?.questionTypes ?? questionTypes;
+    const targetExamStyle = overrides?.examStyle ?? examStyle;
     if (!targetSubject || !targetChapter || targetQuestionTypes.length === 0 || !profile) return;
     if (overrides?.subject) setSubject(overrides.subject);
     if (overrides?.chapter) setChapter(overrides.chapter);
     setActiveSessionType(overrides?.type ?? 'chapter');
+    setActiveExamStyle(targetExamStyle);
     setActiveRevisionReasons(overrides?.revisionReasons ?? []);
     const requestTargets = withTargetLanguages(overrides?.targets ?? [{ subject: targetSubject, chapter: targetChapter }]);
     setActiveTargets(requestTargets);
@@ -472,6 +493,7 @@ export default function Practice() {
           board: profile.board,
           responseLanguage: getSubjectStudyLanguage(targetSubject, profile.subjectLanguages),
           questionTypes: targetQuestionTypes,
+          examStyle: targetExamStyle,
           countPerType,
           mode: overrides?.type ?? 'chapter',
           chapters: requestTargets,
@@ -542,6 +564,7 @@ export default function Practice() {
           mode: 'quiz',
           chapters: withTargetLanguages(selectedQuizTargets),
           questionTypes: ['mcq'],
+          examStyle: 'board-mcq',
           countPerType: quizLength,
           totalQuestions: quizLength,
         }),
@@ -574,6 +597,7 @@ export default function Practice() {
       targets,
       revisionReasons: targets.map((item) => item.reason ?? `${item.subject} - ${item.chapter}`),
       questionTypes: ['mcq', 'short', 'definition'],
+      examStyle: 'past-paper',
     });
   }
 
@@ -801,6 +825,29 @@ export default function Practice() {
                   </motion.button>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Exam style
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {EXAM_STYLE_OPTIONS.map((style) => (
+                <button
+                  key={style.value}
+                  type="button"
+                  onClick={() => setExamStyle(style.value)}
+                  className={`min-h-[44px] shrink-0 rounded-2xl border px-3 text-left text-xs font-bold ${
+                    examStyle === style.value
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-muted-foreground'
+                  }`}
+                  title={style.description}
+                >
+                  {style.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1107,9 +1154,14 @@ export default function Practice() {
                       <p className="text-sm font-bold text-foreground">
                         MCQ {mcqIndex + 1}/{currentMcqs.length}
                       </p>
-                      <p className="text-xs font-bold text-primary">
-                        {mcqScore}/{currentMcqs.length} correct
-                      </p>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-primary">
+                          {mcqScore}/{currentMcqs.length} correct
+                        </p>
+                        <span className="mt-1 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
+                          {examStyleLabel(activeExamStyle)}
+                        </span>
+                      </div>
                     </div>
                     <div className="mb-4 h-2 overflow-hidden rounded-full bg-secondary">
                       <motion.div
@@ -1198,6 +1250,9 @@ export default function Practice() {
                       return (
                         <div key={answerKey} className="rounded-2xl border border-border bg-background p-3">
                           <p className={`text-sm font-semibold text-foreground ${rtlTextClass(item.question)}`}>{item.question}</p>
+                          <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
+                            {examStyleLabel(activeExamStyle)}
+                          </span>
                           <textarea
                             rows={3}
                             placeholder="Write your answer here..."
@@ -1246,6 +1301,9 @@ export default function Practice() {
                   <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     Define this term
                   </p>
+                  <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
+                    {examStyleLabel(activeExamStyle)}
+                  </span>
                   <p className={`mt-3 text-lg font-bold text-foreground ${rtlTextClass(currentDefinition.term)}`}>
                     {currentDefinition.term}
                   </p>
@@ -1361,6 +1419,9 @@ export default function Practice() {
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${HISTORY_TYPE_STYLES[attemptType(attempt)]}`}>
                         {attemptType(attempt)}
                       </span>
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
+                        {examStyleLabel(attempt.examStyle)}
+                      </span>
                       {attempt.durationSeconds && (
                         <span className="text-[10px] font-bold text-muted-foreground">{attempt.durationSeconds}s</span>
                       )}
@@ -1411,6 +1472,9 @@ export default function Practice() {
                   <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     {attemptType(selectedAttempt)} session
                   </p>
+                  <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
+                    {examStyleLabel(selectedAttempt.examStyle)}
+                  </span>
                   <h2 className={`text-xl font-black text-foreground ${subjectDirectionClass(selectedAttempt.subject, profile.subjectLanguages)}`}>
                     {labelChapter(selectedAttempt.subject, selectedAttempt.chapter)}
                   </h2>

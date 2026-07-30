@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { format } from 'date-fns';
 import {
   Award,
+  Bell,
   BookOpen,
   Calendar,
   Check,
@@ -13,6 +15,8 @@ import {
   LogOut,
   RotateCcw,
   Save,
+  ShieldCheck,
+  Upload,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation } from 'wouter';
@@ -56,12 +60,16 @@ export default function Profile() {
     profile,
     setProfile,
     resetProgress,
+    exportBackupData,
+    restoreBackupData,
     streak,
     simulatedMode,
     setSimulatedMode,
     setStreakForDemo,
     earnedBadges,
     chapterCompletion,
+    reminderSettings,
+    setReminderSettings,
   } = useAppContext();
   const { currentUser, isGuest, signInWithGoogle, signOut } = useAuthContext();
   const [, setLocation] = useLocation();
@@ -73,6 +81,11 @@ export default function Profile() {
   const [draftSubjects, setDraftSubjects] = useState<string[]>([]);
   const [draftSubjectLanguages, setDraftSubjectLanguages] = useState<Record<string, SubjectStudyLanguage>>({});
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof Notification === 'undefined' ? 'denied' : Notification.permission,
+  );
 
   useEffect(() => {
     if (!profile) return;
@@ -167,9 +180,61 @@ export default function Profile() {
   }
 
   function confirmResetProgress() {
-    resetProgress();
-    setShowResetConfirm(false);
+    if (resetConfirmText !== 'RESET') return;
+    flushSync(() => {
+      resetProgress();
+      setShowResetConfirm(false);
+      setResetConfirmText('');
+    });
     setLocation('/onboarding');
+  }
+
+  async function requestReminderPermission() {
+    if (typeof Notification === 'undefined') {
+      setBackupMessage('This browser does not support notifications. In-app reminders will still work.');
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission !== 'granted') {
+        setBackupMessage('Notification permission was not granted. Dashboard reminders will still show in-app.');
+      }
+    } catch {
+      setBackupMessage('Could not request notification permission. In-app reminders will still work.');
+    }
+  }
+
+  function updateReminderEnabled(enabled: boolean) {
+    setReminderSettings({ ...reminderSettings, enabled });
+    setBackupMessage(enabled ? 'Reminders enabled.' : 'Reminders turned off.');
+  }
+
+  function downloadBackup() {
+    const backup = exportBackupData();
+    const date = todayDateOnly();
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `matric-study-planner-backup-${date}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setBackupMessage('Backup downloaded. Keep it safe before resetting progress.');
+  }
+
+  async function restoreBackup(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      restoreBackupData(parsed);
+      setBackupMessage('Backup restored successfully.');
+    } catch (err) {
+      setBackupMessage(err instanceof Error ? err.message : 'Could not restore this backup file.');
+    }
   }
 
   function simulateExamDate(daysFromToday: number) {
@@ -475,6 +540,78 @@ export default function Profile() {
           </div>
         </Card>
 
+        <Card className="p-5 space-y-4" noTap>
+          <div className="flex items-start gap-3">
+            <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-foreground">Study Reminders</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Get a daily nudge for your next task. Browser notifications work best while the app has been opened recently.
+              </p>
+            </div>
+          </div>
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Reminder time
+            </span>
+            <input
+              type="time"
+              value={reminderSettings.time}
+              onChange={(event) =>
+                setReminderSettings({ ...reminderSettings, time: event.target.value || '18:00' })
+              }
+              className="h-11 w-full rounded-2xl border border-input bg-background px-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label="Daily reminder time"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant={reminderSettings.enabled ? 'primary' : 'outline'}
+              onClick={() => updateReminderEnabled(!reminderSettings.enabled)}
+            >
+              {reminderSettings.enabled ? 'Reminders On' : 'Turn On'}
+            </Button>
+            <Button variant="outline" onClick={requestReminderPermission}>
+              Enable Alerts
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Notification permission: <span className="font-bold">{notificationPermission}</span>
+          </p>
+        </Card>
+
+        <Card className="p-5 space-y-3" noTap>
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-foreground">Backup & Restore</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Download a JSON backup before resetting, or restore one on a new device.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            <Button variant="outline" fullWidth onClick={downloadBackup}>
+              Download Backup
+            </Button>
+            <label className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 text-sm font-bold text-foreground">
+              <Upload className="h-4 w-4" />
+              Restore from Backup
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="sr-only"
+                onChange={restoreBackup}
+              />
+            </label>
+          </div>
+          {backupMessage && (
+            <p className="rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-xs font-semibold text-muted-foreground">
+              {backupMessage}
+            </p>
+          )}
+        </Card>
+
         <div className="overflow-hidden rounded-2xl border border-dashed border-muted-foreground/30 bg-card">
           <button
             type="button"
@@ -564,7 +701,7 @@ export default function Profile() {
             <div className="min-w-0 flex-1">
               <h2 className="text-base font-bold text-foreground">Reset Progress</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Full fresh start: clears board, subjects, exam date, chapters, streak, badges, AI plans, and tutor chat.
+                Full fresh start: clears board, subjects, exam date, chapters, streak, badges, AI plans, tutor chat, events, reminders, and practice history.
               </p>
             </div>
           </div>
@@ -607,22 +744,44 @@ export default function Profile() {
                 Are you sure?
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                This clears all progress and saved profile info. You will go through onboarding again, including board selection.
+                This permanently deletes your saved study data. Download a backup first if you may need it later.
               </p>
+              <button
+                type="button"
+                onClick={downloadBackup}
+                className="mt-4 min-h-[44px] w-full rounded-2xl border border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary"
+              >
+                Download Backup First
+              </button>
+              <label className="mt-4 block">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Type RESET to confirm
+                </span>
+                <input
+                  value={resetConfirmText}
+                  onChange={(event) => setResetConfirmText(event.target.value)}
+                  className="h-11 w-full rounded-2xl border border-input bg-background px-3 text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="RESET"
+                />
+              </label>
               <div className="mt-5 flex gap-3">
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setShowResetConfirm(false)}
+                  onClick={() => {
+                    setShowResetConfirm(false);
+                    setResetConfirmText('');
+                  }}
                 >
                   Cancel
                 </Button>
                 <Button
                   className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   onClick={confirmResetProgress}
+                  disabled={resetConfirmText !== 'RESET'}
                   data-testid="button-confirm-reset-progress"
                 >
-                  Reset
+                  Reset Anyway
                 </Button>
               </div>
             </motion.div>

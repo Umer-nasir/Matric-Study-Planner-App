@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { format, differenceInDays } from 'date-fns';
-import { Award, PartyPopper, BookCheck, RefreshCw, ChevronDown, Clock, AlertCircle, Sparkles, Calendar, CalendarCheck, X } from 'lucide-react';
+import { Award, PartyPopper, BookCheck, RefreshCw, ChevronDown, Clock, AlertCircle, Sparkles, Calendar, CalendarCheck, X, Bell, Download, FileText } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
@@ -68,6 +68,51 @@ function generateFallbackTasks(
   const safedays = Math.max(1, daysLeft);
   const dailyRate = Math.ceil(totalIncomplete / safedays);
   return pool.slice(0, Math.min(Math.max(dailyRate, 2), 6));
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function pdfEscape(text: string): string {
+  return text.replace(/[\\()]/g, '\\$&').replace(/[^\x20-\x7E]/g, '-');
+}
+
+function buildSimplePdf(lines: string[]): Blob {
+  const content = [
+    'BT',
+    '/F1 18 Tf',
+    '72 760 Td',
+    '(Matric Study Planner - Weekly Report) Tj',
+    '/F1 10 Tf',
+    ...lines.flatMap((line) => ['0 -18 Td', `(${pdfEscape(line)}) Tj`]),
+    'ET',
+  ].join('\n');
+  const objects = [
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj',
+    '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
+    `5 0 obj << /Length ${content.length} >> stream\n${content}\nendstream endobj`,
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(pdf.length);
+    pdf += `${object}\n`;
+  }
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i < offsets.length; i++) {
+    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([pdf], { type: 'application/pdf' });
 }
 
 // ── Task checkbox ─────────────────────────────────────────────────────────────
@@ -447,6 +492,7 @@ export default function Dashboard() {
     toggleChapterScheduleSelection, setSubjectScheduleSelection,
     markScheduleSelectionConfigured, scheduleSelectionConfigured,
     selectedScheduleChapterCount,
+    reminderSettings, markReminderShown, practiceHistory, streak,
   } = useAppContext();
   const [, setLocation] = useLocation();
 
@@ -455,6 +501,8 @@ export default function Dashboard() {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [showWeekly, setShowWeekly] = useState(false);
   const [showChapterSelection, setShowChapterSelection] = useState(false);
+  const [reminderBanner, setReminderBanner] = useState<string | null>(null);
+  const [reminderTick, setReminderTick] = useState(0);
 
   if (!profile) return null;
 
@@ -507,6 +555,73 @@ export default function Dashboard() {
   const allTasksDone = todaysTasks.length > 0 && todaysTasks.every(
     (t) => getChapterState(chapterCompletion[t.subject]?.[t.chapter]).done,
   );
+
+  const nextReminderTask = todaysTasks.find(
+    (task) => !getChapterState(chapterCompletion[task.subject]?.[task.chapter]).done,
+  ) ?? todaysTasks[0];
+
+  const weakChapter = useMemo(() => {
+    // Weak-chapter rule for demo/usefulness: remind the student about the latest chapter whose last recorded
+    // practice/quiz/revision score was below 60%, because that is a clear exam-readiness signal.
+    const latestByChapter = new Map<string, typeof practiceHistory[number]>();
+    for (const attempt of practiceHistory) {
+      const key = `${attempt.subject}::${attempt.chapter}`;
+      if (!latestByChapter.has(key)) latestByChapter.set(key, attempt);
+    }
+    return [...latestByChapter.values()].find(
+      (attempt) => attempt.total > 0 && attempt.score / attempt.total < 0.6,
+    );
+  }, [practiceHistory]);
+
+  const reminderText = nextReminderTask
+    ? `${subjectDisplayName(nextReminderTask.subject, profile.subjectLanguages)}: ${chapterDisplayName(nextReminderTask.subject, nextReminderTask.chapter, profile.subjectLanguages)} at ${reminderSettings.time}`
+    : weakChapter
+    ? `Revise ${subjectDisplayName(weakChapter.subject, profile.subjectLanguages)}: ${chapterDisplayName(weakChapter.subject, weakChapter.chapter, profile.subjectLanguages)} at ${reminderSettings.time}`
+    : `Open your study planner at ${reminderSettings.time}`;
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/reminder-sw.js').catch(() => undefined);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setReminderTick((value) => value + 1), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!reminderSettings.enabled) {
+      setReminderBanner(null);
+      return;
+    }
+    const [hour, minute] = reminderSettings.time.split(':').map(Number);
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    const due = now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute);
+    if (!due || reminderSettings.lastShownDate === todayKey) return;
+
+    const message = weakChapter
+      ? `Revision reminder: ${subjectDisplayName(weakChapter.subject, profile.subjectLanguages)} - ${chapterDisplayName(weakChapter.subject, weakChapter.chapter, profile.subjectLanguages)} was weak last time.`
+      : nextReminderTask
+      ? `Study reminder: ${subjectDisplayName(nextReminderTask.subject, profile.subjectLanguages)} - ${chapterDisplayName(nextReminderTask.subject, nextReminderTask.chapter, profile.subjectLanguages)}.`
+      : 'Study reminder: open your planner and complete one focused task.';
+
+    setReminderBanner(message);
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification('Matric Study Planner', { body: message });
+    }
+    markReminderShown(todayKey);
+  }, [
+    markReminderShown,
+    nextReminderTask,
+    profile.subjectLanguages,
+    reminderTick,
+    reminderSettings.enabled,
+    reminderSettings.lastShownDate,
+    reminderSettings.time,
+    weakChapter,
+  ]);
 
   // ── Regenerate handler ────────────────────────────────────────────────────
   const generatePlanFromSelection = async () => {
@@ -586,6 +701,77 @@ export default function Dashboard() {
   });
 
   // ── Schedule meta ─────────────────────────────────────────────────────────
+  const weeklyReportLines = [
+    `Board: ${profile.board}`,
+    `Exam date: ${format(examDate, 'dd MMMM yyyy')} (${Math.max(0, daysLeft)} days left)`,
+    `Progress: ${doneChapters}/${totalChapters} chapters (${overallProgress}%)`,
+    `Streak: ${streak} day${streak !== 1 ? 's' : ''}`,
+    `Badges: ${unlockedMilestones.length ? unlockedMilestones.map((m) => m.title).join(', ') : 'No badges yet'}`,
+    'Subject progress:',
+    ...subjectProgress.map((item) => `- ${subjectDisplayName(item.subject, profile.subjectLanguages)}: ${item.done}/${item.total} (${item.pct}%)`),
+    'Weekly plan:',
+    ...((aiSchedule?.week ?? [{ day: 'Today', date: todayStr, blocks: todaysTasks }])
+      .flatMap((day) =>
+        day.blocks.slice(0, 3).map((block) =>
+          `- ${day.day}: ${subjectDisplayName(block.subject, profile.subjectLanguages)} - ${chapterDisplayName(block.subject, block.chapter, profile.subjectLanguages)} (${block.durationMinutes ?? 30} min)`,
+        ),
+      )
+      .slice(0, 10)),
+  ];
+
+  function exportWeeklyPlanPng() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#F7F7FB';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#5B4BE7';
+    ctx.fillRect(0, 0, canvas.width, 190);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 52px Arial';
+    ctx.fillText('Matric Study Planner', 70, 90);
+    ctx.font = '28px Arial';
+    ctx.fillText('Weekly study report', 70, 135);
+    ctx.fillStyle = '#111827';
+    ctx.font = 'bold 34px Arial';
+    ctx.fillText(`${profile!.board} - ${format(examDate, 'dd MMM yyyy')}`, 70, 245);
+    ctx.font = '24px Arial';
+    ctx.fillStyle = '#4B5563';
+    ctx.fillText(`${doneChapters}/${totalChapters} chapters complete - ${streak} day streak`, 70, 285);
+    let y = 355;
+    ctx.font = 'bold 30px Arial';
+    ctx.fillStyle = '#111827';
+    ctx.fillText('Highlights', 70, y);
+    y += 45;
+    ctx.font = '24px Arial';
+    for (const line of weeklyReportLines.slice(2, 7)) {
+      ctx.fillStyle = '#374151';
+      ctx.fillText(line.slice(0, 82), 90, y);
+      y += 38;
+    }
+    y += 20;
+    ctx.font = 'bold 30px Arial';
+    ctx.fillStyle = '#111827';
+    ctx.fillText('This Week', 70, y);
+    y += 45;
+    ctx.font = '23px Arial';
+    for (const line of weeklyReportLines.slice(-10)) {
+      ctx.fillStyle = '#374151';
+      ctx.fillText(line.slice(0, 88), 90, y);
+      y += 38;
+      if (y > 1260) break;
+    }
+    canvas.toBlob((blob) => {
+      if (blob) downloadBlob(blob, `matric-weekly-plan-${todayStr}.png`);
+    }, 'image/png');
+  }
+
+  function exportWeeklyPlanPdf() {
+    downloadBlob(buildSimplePdf(weeklyReportLines), `matric-weekly-plan-${todayStr}.pdf`);
+  }
+
   const scheduleAge = aiSchedule
     ? Math.round((Date.now() - new Date(aiSchedule.generatedAt).getTime()) / 3600000)
     : null;
@@ -633,6 +819,32 @@ export default function Dashboard() {
         )}
 
         {/* ── Exam passed ─────────────────────────────────────────────────── */}
+        <motion.div variants={crd}>
+          <Card className="p-4 space-y-3" noTap>
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Bell size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Next reminder</p>
+                <p className="mt-0.5 text-sm font-bold text-foreground">
+                  {reminderSettings.enabled ? reminderText : 'Turn on reminders in Profile'}
+                </p>
+                {weakChapter && reminderSettings.enabled && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Weak chapter flagged from your last low practice score.
+                  </p>
+                )}
+              </div>
+            </div>
+            {reminderBanner && (
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary">
+                {reminderBanner}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
         {examPassed ? (
           <motion.div variants={crd}>
             <div className="rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg text-center">
@@ -923,6 +1135,32 @@ export default function Dashboard() {
                 )}
 
                 {/* ── Subject Quick-Glance Row ─────────────────────────────── */}
+                <motion.div variants={crd}>
+                  <Card className="p-4 space-y-3" noTap>
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Download size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-base font-bold text-foreground">Share Weekly Plan</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Export progress and this week's tasks for parents or teachers.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" onClick={exportWeeklyPlanPng} className="px-3">
+                        <Download className="mr-2 h-4 w-4" />
+                        PNG
+                      </Button>
+                      <Button variant="outline" onClick={exportWeeklyPlanPdf} className="px-3">
+                        <FileText className="mr-2 h-4 w-4" />
+                        PDF
+                      </Button>
+                    </div>
+                  </Card>
+                </motion.div>
+
                 <motion.div variants={crd} className="space-y-3">
                   <h2 className="text-lg font-bold text-foreground tracking-tight">Your Subjects</h2>
                   <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5" style={{ scrollbarWidth: 'none' }}>
