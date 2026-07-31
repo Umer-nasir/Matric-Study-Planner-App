@@ -4,9 +4,10 @@ const URDU_SUBJECT_NAMES: Record<string, string> = {
   Physics: 'طبیعیات',
   Chemistry: 'کیمیا',
   Mathematics: 'ریاضی',
+  Math: 'ریاضی',
   Biology: 'حیاتیات',
   'Computer Science': 'کمپیوٹر سائنس',
-  English: 'English',
+  English: 'انگریزی',
   Urdu: 'اردو',
   Islamiat: 'اسلامیات',
   'Pakistan Studies': 'مطالعہ پاکستان',
@@ -158,9 +159,13 @@ export function isSubjectUrdu(
 
 export function subjectDisplayName(
   subject: string,
-  subjectLanguages?: Record<string, SubjectStudyLanguage>,
+  _subjectLanguages?: Record<string, SubjectStudyLanguage>,
 ): string {
-  return isSubjectUrdu(subject, subjectLanguages) ? URDU_SUBJECT_NAMES[subject] ?? subject : subject;
+  return subject;
+}
+
+export function subjectNameDirectionClass(subject: string): string {
+  return '';
 }
 
 export function chapterDisplayName(

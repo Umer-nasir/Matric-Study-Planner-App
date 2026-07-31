@@ -35,6 +35,7 @@ import {
   getSubjectStudyLanguage,
   subjectDirectionClass,
   subjectDisplayName,
+  subjectNameDirectionClass,
 } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
 
@@ -302,7 +303,7 @@ export default function Practice() {
         flagged.set(key, {
           subject: attempt.subject,
           chapter: attempt.chapter,
-          reason: `${attempt.subject} - ${attempt.chapter}: scored ${percent}% in recent practice`,
+          reason: `${subjectDisplayName(attempt.subject, profile?.subjectLanguages)} - ${chapterDisplayName(attempt.subject, attempt.chapter, profile?.subjectLanguages)}: scored ${percent}% in recent practice`,
         });
       }
     });
@@ -314,7 +315,7 @@ export default function Practice() {
       if (flagged.has(key) || latestByChapter.has(key)) continue;
       flagged.set(key, {
         ...target,
-        reason: `${target.subject} - ${target.chapter}: marked complete, but no practice attempt yet`,
+        reason: `${subjectDisplayName(target.subject, profile?.subjectLanguages)} - ${chapterDisplayName(target.subject, target.chapter, profile?.subjectLanguages)}: marked complete, but no practice attempt yet`,
       });
     }
 
@@ -322,13 +323,13 @@ export default function Practice() {
       allChapterTargets.slice(0, 4).forEach((target) => {
         flagged.set(targetKey(target), {
           ...target,
-          reason: `${target.subject} - ${target.chapter}: starter revision pick from your selected subjects`,
+          reason: `${subjectDisplayName(target.subject, profile?.subjectLanguages)} - ${chapterDisplayName(target.subject, target.chapter, profile?.subjectLanguages)}: starter revision pick from your selected subjects`,
         });
       });
     }
 
     return [...flagged.values()].slice(0, 6);
-  }, [allChapterTargets, chapterCompletion, practiceHistory]);
+  }, [allChapterTargets, chapterCompletion, practiceHistory, profile?.subjectLanguages]);
   const quizMcqs = quizSet?.mcqs ?? [];
   const quizScore = quizMcqs.reduce((score, mcq, index) => {
     return quizAnswers[index] === mcq.correctIndex ? score + 1 : score;
@@ -600,7 +601,11 @@ export default function Practice() {
       chapter: targets.length === 1 ? targets[0].chapter : 'Targeted Revision',
       type: 'revision',
       targets,
-      revisionReasons: targets.map((item) => item.reason ?? `${item.subject} - ${item.chapter}`),
+      revisionReasons: targets.map(
+        (item) =>
+          item.reason ??
+          `${subjectDisplayName(item.subject, profile?.subjectLanguages)} - ${chapterDisplayName(item.subject, item.chapter, profile?.subjectLanguages)}`,
+      ),
       questionTypes: ['mcq', 'short', 'definition'],
       examStyle: 'past-paper',
     });
@@ -677,7 +682,11 @@ export default function Practice() {
     ? definitionChecks[currentDefinitionKey]
     : undefined;
   const labelSubject = (item: string) =>
-    item === 'All Subjects' || item === 'Targeted Revision' ? item : subjectDisplayName(item, profile.subjectLanguages);
+    item === 'All Subjects'
+      ? 'تمام مضامین'
+      : item === 'Targeted Revision'
+      ? item
+      : subjectDisplayName(item, profile.subjectLanguages);
   const labelChapter = (itemSubject: string, itemChapter: string) =>
     itemChapter === 'Mixed quiz' || itemChapter === 'Selected chapters quiz' || itemChapter === 'Targeted Revision'
       ? itemChapter
@@ -748,7 +757,7 @@ export default function Practice() {
                   }`}
                 >
                   <SubjectIcon subject={item} className="h-5 w-5 text-xl" />
-                  <span className={`mt-1 block truncate text-sm font-bold ${subjectDirectionClass(item, profile.subjectLanguages)}`}>
+                  <span className={`mt-1 block truncate text-sm font-bold ${subjectNameDirectionClass(item)}`}>
                     {labelSubject(item)}
                   </span>
                 </motion.button>
@@ -1430,8 +1439,11 @@ export default function Practice() {
                         <span className="text-[10px] font-bold text-muted-foreground">{attempt.durationSeconds}s</span>
                       )}
                     </div>
-                    <p className={`truncate text-sm font-bold text-foreground ${subjectDirectionClass(attempt.subject, profile.subjectLanguages)}`}>
-                      {labelSubject(attempt.subject)} - {labelChapter(attempt.subject, attempt.chapter)}
+                    <p className="truncate text-sm font-bold text-foreground">
+                      <span className={subjectNameDirectionClass(attempt.subject)}>
+                        {labelSubject(attempt.subject)}
+                      </span>
+                      <span> - {labelChapter(attempt.subject, attempt.chapter)}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(attempt.date), { addSuffix: true })}
@@ -1482,7 +1494,7 @@ export default function Practice() {
                   <h2 className={`text-xl font-black text-foreground ${subjectDirectionClass(selectedAttempt.subject, profile.subjectLanguages)}`}>
                     {labelChapter(selectedAttempt.subject, selectedAttempt.chapter)}
                   </h2>
-                  <p className={`mt-1 text-sm font-semibold text-muted-foreground ${subjectDirectionClass(selectedAttempt.subject, profile.subjectLanguages)}`}>
+                  <p className={`mt-1 text-sm font-semibold text-muted-foreground ${subjectNameDirectionClass(selectedAttempt.subject)}`}>
                     {labelSubject(selectedAttempt.subject)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">

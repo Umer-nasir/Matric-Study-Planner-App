@@ -15,6 +15,7 @@ import {
   getSubjectStudyLanguage,
   subjectDirectionClass,
   subjectDisplayName,
+  subjectNameDirectionClass,
   type SubjectStudyLanguage,
 } from '@/lib/subjectLanguage';
 import { containsUrduScript, rtlTextClass } from '@/lib/textDirection';
@@ -41,13 +42,13 @@ function Checkbox({ checked, onToggle }: { checked: boolean; onToggle: () => voi
   return (
     <motion.button
       onClick={onToggle}
-      className={`w-11 h-11 rounded-2xl border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-200 ${
+      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
         checked
-          ? 'bg-primary border-primary'
-          : 'border-border bg-background'
+          ? 'border-primary bg-primary text-primary-foreground shadow-primary/20'
+          : 'border-slate-200 bg-slate-50 text-transparent hover:border-primary/30 hover:bg-primary/5'
       }`}
-      whileTap={{ scale: 0.82 }}
-      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.88 }}
+      whileHover={{ scale: 1.04 }}
       aria-label={checked ? 'Mark incomplete' : 'Mark complete'}
     >
       <AnimatePresence>
@@ -162,7 +163,7 @@ function SubjectCard({ subject, chapters, completion, onToggle, onExplain, needs
         {/* Name + progress */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <span className={`font-semibold text-foreground truncate ${subjectDirectionClass(subject, subjectLanguages)}`}>
+            <span className={`font-semibold text-foreground truncate ${subjectNameDirectionClass(subject)}`}>
               {displaySubject}
             </span>
             <span className="text-xs font-bold text-muted-foreground whitespace-nowrap flex-shrink-0">
@@ -483,7 +484,9 @@ export default function Syllabus() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    {subjectDisplayName(selectedChapter.subject, profile.subjectLanguages)}
+                    <span className={subjectNameDirectionClass(selectedChapter.subject)}>
+                      {subjectDisplayName(selectedChapter.subject, profile.subjectLanguages)}
+                    </span>
                   </p>
                   <h2 className={`mt-1 text-xl font-black leading-tight text-foreground ${subjectDirectionClass(selectedChapter.subject, profile.subjectLanguages)}`}>
                     {chapterDisplayName(selectedChapter.subject, selectedChapter.chapter, profile.subjectLanguages)}

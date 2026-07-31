@@ -19,7 +19,13 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import { getDailyQuote } from '@/data/quotes';
 import { apiUrl } from '@/lib/api';
-import { chapterDisplayName, subjectDirectionClass, subjectDisplayName, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
+import {
+  chapterDisplayName,
+  subjectDirectionClass,
+  subjectDisplayName,
+  subjectNameDirectionClass,
+  type SubjectStudyLanguage,
+} from '@/lib/subjectLanguage';
 import type { ChapterCompletion, ChapterState } from '@/context/AppContext';
 import type { ScheduleDay } from '@/types/schedule';
 
@@ -121,11 +127,13 @@ function TaskCheckbox({ checked, subject, onToggle }: { checked: boolean; subjec
   return (
     <motion.button
       onClick={onToggle}
-      className={`w-11 h-11 rounded-2xl border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-200 ${
-        checked ? 'bg-primary border-primary' : 'border-primary/20 bg-primary/8'
+      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+        checked
+          ? 'border-primary bg-primary text-primary-foreground shadow-primary/20'
+          : 'border-slate-200 bg-slate-50 text-transparent hover:border-primary/30 hover:bg-primary/5'
       }`}
-      whileTap={{ scale: 0.8 }}
-      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.88 }}
+      whileHover={{ scale: 1.04 }}
       aria-label={checked ? `Mark ${subject} incomplete` : `Mark ${subject} complete`}
     >
       <AnimatePresence>
@@ -146,18 +154,7 @@ function TaskCheckbox({ checked, subject, onToggle }: { checked: boolean; subjec
               transition={{ duration: 0.2, ease: 'easeOut' }}
             />
           </motion.svg>
-        ) : (
-          <motion.span
-            key="subject-icon"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            className="text-xl leading-none"
-            aria-hidden="true"
-          >
-            <SubjectIcon subject={subject} className="h-5 w-5" />
-          </motion.span>
-        )}
+        ) : null}
       </AnimatePresence>
     </motion.button>
   );
@@ -266,7 +263,7 @@ function WeeklyView({
                               {displayChapter}
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                              <span className={subjectDirectionClass(block.subject, subjectLanguages)}>{displaySubject}</span>
+                              <span className={subjectNameDirectionClass(block.subject)}>{displaySubject}</span>
                               <span className="flex items-center gap-0.5">
                                 <Clock size={10} />
                                 {block.durationMinutes}m
@@ -376,7 +373,7 @@ function ChapterSelectionModal({
                     <SubjectIcon subject={subject} className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className={`block truncate text-sm font-bold text-foreground ${subjectDirectionClass(subject, subjectLanguages)}`}>
+                    <span className={`block truncate text-sm font-bold text-foreground ${subjectNameDirectionClass(subject)}`}>
                       {displaySubject}
                     </span>
                     <span className="text-xs text-muted-foreground">
@@ -1075,7 +1072,7 @@ export default function Dashboard() {
                                 {displayChapter}
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                                <span className={subjectDirectionClass(subject, profile.subjectLanguages)}>{displaySubject}</span>
+                                <span className={subjectNameDirectionClass(subject)}>{displaySubject}</span>
                                 {durationMinutes && (
                                   <span className="flex items-center gap-0.5">
                                     <Clock size={10} />
@@ -1176,7 +1173,7 @@ export default function Dashboard() {
                         <div className="mb-1.5 flex h-6 items-center text-xl">
                           <SubjectIcon subject={subject} className="h-5 w-5" />
                         </div>
-                        <p className={`text-xs font-semibold text-foreground leading-snug truncate mb-1.5 ${subjectDirectionClass(subject, profile.subjectLanguages)}`}>
+                        <p className={`text-xs font-semibold text-foreground leading-snug truncate mb-1.5 ${subjectNameDirectionClass(subject)}`}>
                           {subjectDisplayName(subject, profile.subjectLanguages)}
                         </p>
                         <ProgressBar percentage={pct} height="h-1.5" />

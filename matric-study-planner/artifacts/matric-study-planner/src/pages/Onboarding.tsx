@@ -10,6 +10,7 @@ import {
   getSubjectStudyLanguage,
   normalizeSubjectLanguages,
   subjectDisplayName,
+  subjectNameDirectionClass,
   type SubjectStudyLanguage,
 } from '@/lib/subjectLanguage';
 import {
@@ -269,7 +270,9 @@ export default function Onboarding() {
                           : 'border-transparent bg-card shadow-sm hover:border-primary/20'
                       }`}
                     >
-                      <span className="font-medium text-lg">{subject}</span>
+                      <span className={`font-medium text-lg ${subjectNameDirectionClass(subject)}`}>
+                        {subjectDisplayName(subject)}
+                      </span>
                       <motion.div
                         animate={
                           isSelected
@@ -339,8 +342,8 @@ export default function Onboarding() {
                     >
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-lg font-bold text-foreground">
-                            {subject}
+                          <p className={`truncate text-lg font-bold text-foreground ${subjectNameDirectionClass(subject)}`}>
+                            {subjectDisplayName(subject)}
                           </p>
                           <p className="text-xs font-medium text-muted-foreground">
                             {fixed ? 'Language is fixed for this subject.' : 'Pick your preferred study language.'}

@@ -44,6 +44,7 @@ import {
   getSubjectStudyLanguage,
   normalizeSubjectLanguages,
   subjectDisplayName,
+  subjectNameDirectionClass,
   type SubjectStudyLanguage,
 } from '@/lib/subjectLanguage';
 
@@ -428,7 +429,7 @@ export default function Profile() {
                     }`}
                   >
                     <SubjectIcon subject={subject} className="mr-1.5 inline-flex h-4 w-4 align-[-2px]" />
-                    <span>{displayName}</span>
+                    <span className={subjectNameDirectionClass(subject)}>{displayName}</span>
                   </button>
                 );
               })}
@@ -446,8 +447,8 @@ export default function Profile() {
                   return (
                     <div key={subject} className="rounded-2xl border border-border bg-background p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-bold text-foreground">
-                          {subject}
+                        <p className={`truncate text-sm font-bold text-foreground ${subjectNameDirectionClass(subject)}`}>
+                          {subjectDisplayName(subject)}
                         </p>
                         {!canChooseSubjectLanguage(subject) && (
                           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
