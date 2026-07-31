@@ -6,6 +6,13 @@ import { Button } from '@/components/Button';
 import { BOARDS, SUBJECTS } from '@/data/syllabus';
 import { useAppContext } from '@/context/AppContext';
 import {
+  canChooseSubjectLanguage,
+  getSubjectStudyLanguage,
+  normalizeSubjectLanguages,
+  subjectDisplayName,
+  type SubjectStudyLanguage,
+} from '@/lib/subjectLanguage';
+import {
   addDaysDateOnly,
   dateInputValueToExamDate,
   dateOnlyToLocalDate,
@@ -25,6 +32,7 @@ export default function Onboarding() {
   const [selectedBoard, setSelectedBoard] = useState('');
   const [boardConfirmed, setBoardConfirmed] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [subjectLanguages, setSubjectLanguages] = useState<Record<string, SubjectStudyLanguage>>({});
   const [examDate, setExamDate] = useState('');
   const [error, setError] = useState('');
 
@@ -48,7 +56,11 @@ export default function Onboarding() {
       return;
     }
 
-    if (step === 3) {
+    if (step === 2) {
+      setSubjectLanguages((current) => normalizeSubjectLanguages(selectedSubjects, current));
+    }
+
+    if (step === 4) {
       if (!examDate) {
         setError('Please select your exam date.');
         return;
@@ -66,6 +78,7 @@ export default function Onboarding() {
       setProfile({
         board: selectedBoard,
         subjects: selectedSubjects,
+        subjectLanguages: normalizeSubjectLanguages(selectedSubjects, subjectLanguages),
         examDate: dateInputValueToExamDate(examDate),
         onboardingComplete: true,
       });
@@ -88,9 +101,25 @@ export default function Onboarding() {
   const toggleSubject = (subject: string) => {
     if (selectedSubjects.includes(subject)) {
       setSelectedSubjects(selectedSubjects.filter((s) => s !== subject));
+      setSubjectLanguages((current) => {
+        const next = { ...current };
+        delete next[subject];
+        return next;
+      });
     } else {
       setSelectedSubjects([...selectedSubjects, subject]);
+      setSubjectLanguages((current) => ({
+        ...current,
+        [subject]: getSubjectStudyLanguage(subject, current),
+      }));
     }
+  };
+
+  const setSubjectLanguage = (subject: string, language: SubjectStudyLanguage) => {
+    setSubjectLanguages((current) => ({
+      ...current,
+      [subject]: language,
+    }));
   };
 
   const daysUntilExam =
@@ -111,7 +140,7 @@ export default function Onboarding() {
 
       {/* Progress Dots */}
       <div className="pt-12 pb-6 px-6 flex justify-center space-x-2">
-        {[1, 2, 3].map((i) => (
+        {[1, 2, 3, 4].map((i) => (
           <motion.div
             key={i}
             animate={{
@@ -282,6 +311,79 @@ export default function Onboarding() {
           )}
 
           {step === 3 && (
+            <motion.div
+              key="step3"
+              custom={direction}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              className="flex-1 flex flex-col"
+            >
+              <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
+                Study language
+              </h1>
+              <p className="text-muted-foreground mb-6">
+                Choose how you want each subject shown and explained.
+              </p>
+
+              <div className="space-y-3 flex-1 overflow-y-auto pb-24">
+                {selectedSubjects.map((subject) => {
+                  const fixed = !canChooseSubjectLanguage(subject);
+                  const selectedLanguage = getSubjectStudyLanguage(subject, subjectLanguages);
+                  return (
+                    <div
+                      key={subject}
+                      className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-lg font-bold text-foreground">
+                            {subject}
+                          </p>
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {fixed ? 'Language is fixed for this subject.' : 'Pick your preferred study language.'}
+                          </p>
+                        </div>
+                        {selectedLanguage === 'urdu' && (
+                          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
+                            {subjectDisplayName(subject, { [subject]: 'urdu' })}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['english', 'urdu'] as const).map((language) => {
+                          const active = selectedLanguage === language;
+                          const disabled =
+                            (subject === 'English' && language === 'urdu') ||
+                            (subject === 'Urdu' && language === 'english');
+                          return (
+                            <button
+                              key={language}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => setSubjectLanguage(subject, language)}
+                              className={`min-h-[44px] rounded-2xl border px-3 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                                active
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border bg-background text-muted-foreground'
+                              }`}
+                            >
+                              {language === 'english' ? 'English' : 'Urdu'}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {step === 4 && (
             <motion.div
               key="step4"
               custom={direction}

@@ -9,9 +9,11 @@ interface ExplainChapterRequestBody {
   subject?: string;
   chapter?: string;
   board?: string;
+  studyLanguage?: string;
 }
 
 const EXPLAIN_MODEL = process.env["GROQ_EXPLAIN_MODEL"] ?? "llama-3.1-8b-instant";
+const URDU_EXPLAIN_MODEL = process.env["GROQ_URDU_EXPLAIN_MODEL"] ?? "qwen/qwen3.6-27b";
 
 function stripJson(raw: string): string {
   let cleaned = raw
@@ -58,7 +60,7 @@ function containsBlockedScript(summary: string, keyPoints: string[]): boolean {
 }
 
 router.post("/explain-chapter", async (req: Request, res: Response): Promise<void> => {
-  const { subject, chapter, board = "Punjab Board" } = req.body as ExplainChapterRequestBody;
+  const { subject, chapter, board = "Punjab Board", studyLanguage } = req.body as ExplainChapterRequestBody;
 
   if (!subject || typeof subject !== "string") {
     res.status(400).json({ ok: false, error: "subject is required" });
@@ -79,8 +81,9 @@ router.post("/explain-chapter", async (req: Request, res: Response): Promise<voi
   const cleanChapter = chapter.trim();
   const cleanBoard = board.trim() || "Punjab Board";
   const groq = new Groq({ apiKey });
-  const personaMatch = getSubjectPersona(cleanSubject);
-  console.log(`[subject-persona] /api/explain-chapter subject="${cleanSubject}" matched="${personaMatch.key}"`);
+  const personaMatch = getSubjectPersona(cleanSubject, studyLanguage);
+  const model = personaMatch.expectsUrduScript ? URDU_EXPLAIN_MODEL : EXPLAIN_MODEL;
+  console.log(`[subject-persona] /api/explain-chapter subject="${cleanSubject}" language="${studyLanguage ?? ""}" matched="${personaMatch.key}"`);
 
   try {
     const systemPrompt = `You are helping a Matric-level (grade 9-10) student in Pakistan quickly understand what a chapter covers, following the ${cleanBoard} syllabus. Give a SHORT summary (not a full lesson) of the chapter '${cleanChapter}' in ${cleanSubject}. Cover only the 4-6 most important key points/concepts a student needs to know. Use simple language and concise exam-focused formatting. Keep the entire response under 150 words.
@@ -93,7 +96,7 @@ Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":[
       board: cleanBoard,
     });
     let completion = await groq.chat.completions.create({
-      model: EXPLAIN_MODEL,
+      model,
       temperature: 0.2,
       max_tokens: 450,
       response_format: { type: "json_object" },

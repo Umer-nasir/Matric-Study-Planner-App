@@ -72,3 +72,12 @@ test('does not bleed personas through partial or unmatched subject names', () =>
   assert.equal(getSubjectPersona('Physics').expectsUrduScript, false);
   assert.equal(getSubjectPersona('Urdu').expectsUrduScript, true);
 });
+
+test('allows explicit Urdu study language without changing the subject persona match', () => {
+  const physicsInUrdu = getSubjectPersona('Physics', 'urdu');
+  assert.equal(physicsInUrdu.key, 'Default');
+  assert.equal(physicsInUrdu.expectsUrduScript, true);
+
+  assert.equal(getSubjectPersona('English', 'urdu').expectsUrduScript, false);
+  assert.equal(getSubjectPersona('Urdu', 'english').expectsUrduScript, true);
+});

@@ -32,6 +32,7 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
 import {
   chapterDisplayName,
+  getSubjectStudyLanguage,
   subjectDirectionClass,
   subjectDisplayName,
 } from '@/lib/subjectLanguage';
@@ -133,6 +134,14 @@ function scorePercent(score: number, total: number): number {
 
 function targetKey(target: ChapterTarget): string {
   return `${target.subject}::${target.chapter}`;
+}
+
+function commonStudyLanguage(
+  targets: ChapterTarget[],
+  subjectLanguages: Parameters<typeof getSubjectStudyLanguage>[1],
+): 'english' | 'urdu' | undefined {
+  const languages = new Set(targets.map((target) => getSubjectStudyLanguage(target.subject, subjectLanguages)));
+  return languages.size === 1 ? [...languages][0] : undefined;
 }
 
 function attemptType(attempt: PracticeAttempt): PracticeAttemptType {
@@ -478,6 +487,7 @@ export default function Practice() {
     setDefinitionError(null);
 
     try {
+      const studyLanguage = commonStudyLanguage(requestTargets, profile.subjectLanguages);
       const res = await fetch(apiUrl('/api/generate-practice'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -485,6 +495,7 @@ export default function Practice() {
           subject: targetSubject,
           chapter: targetChapter,
           board: profile.board,
+          studyLanguage,
           questionTypes: targetQuestionTypes,
           examStyle: targetExamStyle,
           countPerType,
@@ -546,6 +557,7 @@ export default function Practice() {
     setQuizStartedAt(null);
 
     try {
+      const studyLanguage = commonStudyLanguage(selectedQuizTargets, profile.subjectLanguages);
       const res = await fetch(apiUrl('/api/generate-practice'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -553,6 +565,7 @@ export default function Practice() {
           subject: quizSubject,
           chapter: quizSubject === 'All Subjects' ? 'Mixed quiz' : 'Selected chapters quiz',
           board: profile.board,
+          studyLanguage,
           mode: 'quiz',
           chapters: selectedQuizTargets,
           questionTypes: ['mcq'],
