@@ -422,14 +422,22 @@ export default function Profile() {
                     type="button"
                     onClick={() => toggleSubject(subject)}
                     aria-pressed={selected}
-                    className={`min-h-[44px] rounded-2xl border px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                    className={`flex min-h-[44px] items-center gap-2 rounded-2xl border px-3 py-2 text-left text-xs font-semibold transition-colors ${
                       selected
                         ? 'border-primary/40 bg-primary/10 text-primary'
                         : 'border-border bg-background text-muted-foreground'
                     }`}
                   >
-                    <SubjectIcon subject={subject} className="mr-1.5 inline-flex h-4 w-4 align-[-2px]" />
-                    <span className={subjectNameDirectionClass(subject)}>{displayName}</span>
+                    <SubjectIcon subject={subject} className="h-5 w-5 shrink-0 text-base" />
+                    <span className={`min-w-0 flex-1 truncate ${subjectNameDirectionClass(subject)}`}>{displayName}</span>
+                    <span
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                        selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {selected && <Check className="h-3.5 w-3.5" />}
+                    </span>
                   </button>
                 );
               })}
@@ -447,9 +455,12 @@ export default function Profile() {
                   return (
                     <div key={subject} className="rounded-2xl border border-border bg-background p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className={`truncate text-sm font-bold text-foreground ${subjectNameDirectionClass(subject)}`}>
-                          {subjectDisplayName(subject)}
-                        </p>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <SubjectIcon subject={subject} className="h-5 w-5 shrink-0 text-base" />
+                          <p className={`truncate text-sm font-bold text-foreground ${subjectNameDirectionClass(subject)}`}>
+                            {subjectDisplayName(subject)}
+                          </p>
+                        </div>
                         {!canChooseSubjectLanguage(subject) && (
                           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
                             Fixed

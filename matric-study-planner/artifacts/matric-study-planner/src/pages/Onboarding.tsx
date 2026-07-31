@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays } from 'lucide-react';
 import { Button } from '@/components/Button';
+import { SubjectIcon } from '@/components/SubjectIcon';
 import { BOARDS, SUBJECTS } from '@/data/syllabus';
 import { useAppContext } from '@/context/AppContext';
 import {
@@ -264,14 +265,17 @@ export default function Onboarding() {
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                       data-testid={`subject-select-${subject.replace(/\s+/g, '-').toLowerCase()}`}
-                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${
+                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 ${
                         isSelected
                           ? 'border-primary bg-primary/5 shadow-sm'
                           : 'border-transparent bg-card shadow-sm hover:border-primary/20'
                       }`}
                     >
-                      <span className={`font-medium text-lg ${subjectNameDirectionClass(subject)}`}>
-                        {subjectDisplayName(subject)}
+                      <span className="flex min-w-0 items-center gap-3">
+                        <SubjectIcon subject={subject} className="h-6 w-6 shrink-0 text-xl" />
+                        <span className={`truncate font-medium text-lg ${subjectNameDirectionClass(subject)}`}>
+                          {subjectDisplayName(subject)}
+                        </span>
                       </span>
                       <motion.div
                         animate={
@@ -280,7 +284,7 @@ export default function Onboarding() {
                             : { scale: 1, backgroundColor: 'transparent' }
                         }
                         transition={{ duration: 0.22 }}
-                        className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
+                        className={`w-6 h-6 shrink-0 rounded-md border-2 flex items-center justify-center transition-colors ${
                           isSelected ? 'border-primary' : 'border-muted-foreground/30'
                         }`}
                       >
@@ -341,13 +345,16 @@ export default function Onboarding() {
                       className="rounded-2xl border border-border bg-card p-4 shadow-sm"
                     >
                       <div className="mb-3 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <SubjectIcon subject={subject} className="mt-0.5 h-6 w-6 shrink-0 text-xl" />
+                          <div className="min-w-0">
                           <p className={`truncate text-lg font-bold text-foreground ${subjectNameDirectionClass(subject)}`}>
                             {subjectDisplayName(subject)}
                           </p>
                           <p className="text-xs font-medium text-muted-foreground">
                             {fixed ? 'Language is fixed for this subject.' : 'Pick your preferred study language.'}
                           </p>
+                          </div>
                         </div>
                         {selectedLanguage === 'urdu' && (
                           <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
