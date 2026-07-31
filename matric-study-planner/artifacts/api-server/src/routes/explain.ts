@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
-import { ENGLISH_ONLY_INSTRUCTION, hasUrduScript } from "../config/genericAi";
+import { hasUrduScript } from "../config/genericAi";
+import { getSubjectPersona } from "../config/subjectPersonas";
 
 const router: IRouter = Router();
 
@@ -78,11 +79,14 @@ router.post("/explain-chapter", async (req: Request, res: Response): Promise<voi
   const cleanChapter = chapter.trim();
   const cleanBoard = board.trim() || "Punjab Board";
   const groq = new Groq({ apiKey });
+  const personaMatch = getSubjectPersona(cleanSubject);
+  console.log(`[subject-persona] /api/explain-chapter subject="${cleanSubject}" matched="${personaMatch.key}"`);
 
   try {
     const systemPrompt = `You are helping a Matric-level (grade 9-10) student in Pakistan quickly understand what a chapter covers, following the ${cleanBoard} syllabus. Give a SHORT summary (not a full lesson) of the chapter '${cleanChapter}' in ${cleanSubject}. Cover only the 4-6 most important key points/concepts a student needs to know. Use simple language and concise exam-focused formatting. Keep the entire response under 150 words.
-${ENGLISH_ONLY_INSTRUCTION}
-Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":["...","..."]}. Every JSON string value must be English only.`;
+${personaMatch.persona}
+${personaMatch.languageInstruction}
+Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":["...","..."]}. ${personaMatch.expectsUrduScript ? "Every JSON string value must be written in Urdu script." : "Every JSON string value must be English only."}`;
     const userPayload = JSON.stringify({
       subject: cleanSubject,
       chapter: cleanChapter,
@@ -108,7 +112,7 @@ Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":[
     let rawContent = completion.choices[0]?.message?.content ?? "";
     let { summary, keyPoints } = normalizeExplanation(rawContent);
 
-    if (containsBlockedScript(summary, keyPoints)) {
+    if (!personaMatch.expectsUrduScript && containsBlockedScript(summary, keyPoints)) {
       completion = await groq.chat.completions.create({
         model: EXPLAIN_MODEL,
         temperature: 0,
@@ -130,7 +134,7 @@ Respond ONLY with valid JSON in this exact shape: {"summary":"...","keyPoints":[
       ({ summary, keyPoints } = normalizeExplanation(rawContent));
     }
 
-    if (containsBlockedScript(summary, keyPoints)) {
+    if (!personaMatch.expectsUrduScript && containsBlockedScript(summary, keyPoints)) {
       res.status(422).json({
         ok: false,
         error: "The AI returned a non-English explanation. Please retry.",

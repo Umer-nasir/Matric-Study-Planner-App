@@ -368,7 +368,7 @@ export default function Syllabus() {
         cachedAt: new Date().toISOString(),
       };
       const text = `${next.summary}\n${next.keyPoints.join('\n')}`;
-      if (containsUrduScript(text)) {
+      if (subject !== 'Urdu' && containsUrduScript(text)) {
         throw new Error('The explanation came back in a non-English script. Please tap refresh and try again.');
       }
       localStorage.setItem(explanationCacheKey(subject, chapter), JSON.stringify(next));

@@ -9,6 +9,10 @@ import {
   normalizeSubjectLanguages,
   subjectDisplayName,
 } from '../artifacts/matric-study-planner/src/lib/subjectLanguage.ts';
+import {
+  getSubjectPersona,
+  normalizeSubjectName,
+} from '../artifacts/api-server/src/config/subjectPersonas.ts';
 
 test('keeps English and Urdu subjects fixed to their own response languages', () => {
   assert.equal(canChooseSubjectLanguage('English'), false);
@@ -50,4 +54,21 @@ test('localizes display names only for Urdu-selected subjects', () => {
   assert.equal(chapterDisplayName('Physics', 'Measurements', languages), 'پیمائش');
   assert.equal(subjectDisplayName('Mathematics', languages), 'Mathematics');
   assert.equal(chapterDisplayName('Mathematics', 'Logarithms', languages), 'Logarithms');
+});
+
+test('matches subject personas exactly after trim and lowercase normalization', () => {
+  assert.equal(normalizeSubjectName('  Physics  '), 'physics');
+  assert.equal(getSubjectPersona('  uRdU  ').key, 'Urdu');
+  assert.equal(getSubjectPersona('english').key, 'English');
+  assert.equal(getSubjectPersona(' Pakistan Studies ').key, 'Pakistan Studies');
+  assert.equal(getSubjectPersona('Islamiat').key, 'Islamiat');
+});
+
+test('does not bleed personas through partial or unmatched subject names', () => {
+  assert.equal(getSubjectPersona('Physics').key, 'Default');
+  assert.equal(getSubjectPersona('Urdu Literature').key, 'Default');
+  assert.equal(getSubjectPersona('Pre-Islamiat').key, 'Default');
+  assert.equal(getSubjectPersona(undefined).key, 'Default');
+  assert.equal(getSubjectPersona('Physics').expectsUrduScript, false);
+  assert.equal(getSubjectPersona('Urdu').expectsUrduScript, true);
 });

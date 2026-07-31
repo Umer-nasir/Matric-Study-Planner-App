@@ -4,7 +4,8 @@ import Groq from "groq-sdk";
 import mammoth from "mammoth";
 import multer from "multer";
 import type pdfParseType from "pdf-parse";
-import { ENGLISH_ONLY_INSTRUCTION, hasUrduScript } from "../config/genericAi";
+import { hasUrduScript } from "../config/genericAi";
+import { getSubjectPersona } from "../config/subjectPersonas";
 
 const router: IRouter = Router();
 const require = createRequire(import.meta.url);
@@ -14,6 +15,7 @@ const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_EXTRACTED_CHARS = 4000;
 const FAST_TEXT_MODEL = process.env["GROQ_TUTOR_FAST_MODEL"] ?? "llama-3.1-8b-instant";
 const VISION_MODEL = "qwen/qwen3.6-27b";
+const URDU_TEXT_MODEL = process.env["GROQ_URDU_TEXT_MODEL"] ?? VISION_MODEL;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -87,10 +89,12 @@ function buildSystemPrompt({
   const context: string[] = [];
   if (subject && subject !== "General") context.push(`Subject focus: ${subject}.`);
   if (board) context.push(`Board context: ${board}.`);
+  const personaMatch = getSubjectPersona(subject);
 
   return `You are a friendly, patient tutor helping a Matric-level (grade 9-10) student in Pakistan understand a topic. Explain in simple, clear language appropriate for their grade level - not university-level depth. Use short paragraphs, and if relevant, a simple example or analogy. If asked something unrelated to their studies, gently redirect them back to academics. Keep responses concise (aim for 100-200 words) since students are reading on mobile.
 ${context.length ? `\n${context.join("\n")}` : ""}
-${ENGLISH_ONLY_INSTRUCTION}
+${personaMatch.persona}
+${personaMatch.languageInstruction}
 ${
   currentMode === "focus"
     ? "\nBe direct and efficient - this student is close to exams and needs quick, exam-relevant answers, not lengthy tangents."
@@ -105,6 +109,15 @@ function getInstantTutorReply(message: string): string | null {
   }
 
   return "Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.";
+}
+
+function getInstantUrduTutorReply(message: string): string | null {
+  const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, "");
+  if (!/^(hi|hello|hey|salam|assalamualaikum|assalamu alaikum)$/.test(normalized)) {
+    return null;
+  }
+
+  return "وعلیکم السلام! اردو کے کسی بھی سبق، تشریح، خط یا درخواست کے بارے میں سوال پوچھیں۔";
 }
 
 function getFileKind(file: Express.Multer.File): UploadedFileKind {
@@ -222,9 +235,13 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
   }
 
   const safeSubject = getTextField(subject);
+  const personaMatch = getSubjectPersona(safeSubject);
+  console.log(`[subject-persona] /api/tutor-chat subject="${safeSubject ?? ""}" matched="${personaMatch.key}"`);
 
   if (!uploadedFile) {
-    const instantReply = getInstantTutorReply(trimmedMessage);
+    const instantReply = personaMatch.expectsUrduScript
+      ? getInstantUrduTutorReply(trimmedMessage)
+      : getInstantTutorReply(trimmedMessage);
     if (instantReply) {
       res.json({ reply: instantReply });
       return;
@@ -239,7 +256,7 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
 
   const groq = new Groq({ apiKey });
   const safeHistory = sanitizeHistory(conversationHistory);
-  const textModel = FAST_TEXT_MODEL;
+  const textModel = personaMatch.expectsUrduScript ? URDU_TEXT_MODEL : FAST_TEXT_MODEL;
   const systemPrompt = buildSystemPrompt({
     currentMode,
     subject: safeSubject,
@@ -291,14 +308,16 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
 
         let reply = completion.choices[0]?.message?.content?.trim();
         if (!reply) throw new Error("No tutor response was returned");
-        reply = await ensureEnglishReply({
-          groq,
-          model: textModel,
-          systemPrompt,
-          originalUserContent: trimmedMessage || "Please solve/explain this question from the uploaded image.",
-          reply,
-        });
-        if (hasUrduScript(reply)) {
+        if (!personaMatch.expectsUrduScript) {
+          reply = await ensureEnglishReply({
+            groq,
+            model: textModel,
+            systemPrompt,
+            originalUserContent: trimmedMessage || "Please solve/explain this question from the uploaded image.",
+            reply,
+          });
+        }
+        if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
           res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
           return;
         }
@@ -337,14 +356,16 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
 
       let reply = completion.choices[0]?.message?.content?.trim();
       if (!reply) throw new Error("No tutor response was returned");
-      reply = await ensureEnglishReply({
-        groq,
-        model: textModel,
-        systemPrompt,
-        originalUserContent: documentPrompt,
-        reply,
-      });
-      if (hasUrduScript(reply)) {
+      if (!personaMatch.expectsUrduScript) {
+        reply = await ensureEnglishReply({
+          groq,
+          model: textModel,
+          systemPrompt,
+          originalUserContent: documentPrompt,
+          reply,
+        });
+      }
+      if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
         res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
         return;
       }
@@ -367,14 +388,16 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     if (!reply) {
       throw new Error("No tutor response was returned");
     }
-    reply = await ensureEnglishReply({
-      groq,
-      model: textModel,
-      systemPrompt,
-      originalUserContent: trimmedMessage,
-      reply,
-    });
-    if (hasUrduScript(reply)) {
+    if (!personaMatch.expectsUrduScript) {
+      reply = await ensureEnglishReply({
+        groq,
+        model: textModel,
+        systemPrompt,
+        originalUserContent: trimmedMessage,
+        reply,
+      });
+    }
+    if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
       res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
       return;
     }

@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpenCheck, Loader2 } from 'lucide-react';
+import {
+  BookOpenCheck,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  Sparkles,
+  Target,
+} from 'lucide-react';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { useAuthContext } from '@/context/AuthContext';
 import { useAppContext } from '@/context/AppContext';
@@ -59,70 +66,163 @@ export default function Portal() {
   }
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="flex min-h-[100dvh] flex-col justify-center px-5 py-8">
+    <div className="min-h-[100dvh] max-w-[480px] mx-auto overflow-hidden bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--accent))_48%,hsl(var(--background))_100%)] shadow-[0_0_40px_rgba(0,0,0,0.05)]">
+      <div className="flex min-h-[100dvh] flex-col px-5 pb-7 pt-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-          className="space-y-6"
+          className="flex flex-1 flex-col"
         >
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <BookOpenCheck size={32} />
+          <header className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                <BookOpenCheck size={25} />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-primary">
+                  Matric
+                </p>
+                <h1 className="text-lg font-black leading-tight text-foreground">
+                  Study Planner
+                </h1>
+              </div>
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground">
-              Matric Study Planner
-            </h1>
-            <p className="mt-2 text-base text-muted-foreground">
-              Plan smarter. Study better.
-            </p>
-          </div>
-
-          <Card className="p-5 space-y-3" noTap>
-            <Button
-              fullWidth
-              onClick={() => {
-                setError(null);
-                continueAsGuest();
-              }}
-              data-testid="button-continue-guest"
-            >
-              Continue as Guest
-            </Button>
-
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={isSigningIn}
-              className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-2xl border border-[#dadce0] bg-white px-4 text-sm font-semibold text-[#3c4043] shadow-sm transition-colors hover:bg-[#f8fafd] disabled:opacity-60"
-              data-testid="button-google-sign-in"
-            >
-              {isSigningIn ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
-              {isSigningIn ? 'Opening Google...' : 'Continue with Google'}
-            </button>
-
-            <Button
-              variant="outline"
-              fullWidth
-              onClick={() => {
-                setError(null);
-                continueAsGuest();
-                loadDemoData();
-              }}
-              data-testid="button-load-demo-data"
-            >
-              Load Demo Data
-            </Button>
-
-            {error && (
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs font-semibold leading-relaxed text-amber-800">
-                {error}
+            <div className="rounded-2xl border border-primary/15 bg-card/80 px-3 py-2 text-right shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Exam Focus
               </p>
-            )}
-          </Card>
+              <p className="text-sm font-black text-foreground">Grade 9-10</p>
+            </div>
+          </header>
 
-          <p className="px-4 text-center text-xs leading-relaxed text-muted-foreground">
+          <main className="flex flex-1 flex-col justify-center py-7">
+            <section className="mb-6">
+              <motion.div
+                initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: 0.08, type: 'spring', stiffness: 280, damping: 26 }}
+                className="overflow-hidden rounded-[2rem] border border-card-border bg-card shadow-xl shadow-primary/10"
+              >
+                <div className="border-b border-border bg-background/80 px-5 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wide text-primary">
+                        Today
+                      </p>
+                      <h2 className="mt-1 text-2xl font-black tracking-tight text-foreground">
+                        3 focused blocks
+                      </h2>
+                    </div>
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                      <Sparkles size={21} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 p-4">
+                  {[
+                    {
+                      icon: CalendarDays,
+                      title: 'Physics revision',
+                      meta: 'Current Electricity',
+                      tone: 'bg-primary/10 text-primary',
+                    },
+                    {
+                      icon: Target,
+                      title: 'Practice set',
+                      meta: 'Board-style MCQs',
+                      tone: 'bg-emerald-50 text-emerald-700',
+                    },
+                    {
+                      icon: Clock3,
+                      title: 'Quick review',
+                      meta: '20 minutes',
+                      tone: 'bg-amber-50 text-amber-700',
+                    },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div
+                        key={item.title}
+                        className="flex items-center gap-3 rounded-2xl border border-border bg-background px-3 py-3"
+                      >
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${item.tone}`}>
+                          <Icon size={18} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black text-foreground">{item.title}</p>
+                          <p className="truncate text-xs font-medium text-muted-foreground">{item.meta}</p>
+                        </div>
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </section>
+
+            <section className="mb-5 text-center">
+              <h2 className="text-4xl font-black tracking-tight text-foreground">
+                Study with a plan that keeps up.
+              </h2>
+              <p className="mx-auto mt-3 max-w-[330px] text-sm leading-relaxed text-muted-foreground">
+                Build an exam-ready routine with chapter plans, AI help, practice, and progress in one calm workspace.
+              </p>
+            </section>
+
+            <section
+              className="rounded-[1.75rem] border border-card-border bg-card/95 p-4 shadow-xl shadow-black/5"
+              aria-label="Sign in options"
+            >
+              <div className="space-y-3">
+                <Button
+                  fullWidth
+                  className="h-12"
+                  onClick={() => {
+                    setError(null);
+                    continueAsGuest();
+                  }}
+                  data-testid="button-continue-guest"
+                >
+                  Continue as Guest
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSigningIn}
+                  className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-2xl border border-[#dadce0] bg-white px-4 text-sm font-bold text-[#3c4043] shadow-sm transition-colors hover:bg-[#f8fafd] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60"
+                  data-testid="button-google-sign-in"
+                >
+                  {isSigningIn ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
+                  {isSigningIn ? 'Opening Google...' : 'Continue with Google'}
+                </button>
+
+                <Button
+                  variant="outline"
+                  fullWidth
+                  className="h-12"
+                  onClick={() => {
+                    setError(null);
+                    continueAsGuest();
+                    loadDemoData();
+                  }}
+                  data-testid="button-load-demo-data"
+                >
+                  Load Demo Data
+                </Button>
+              </div>
+
+              {error && (
+                <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs font-semibold leading-relaxed text-amber-800">
+                  {error}
+                </p>
+              )}
+            </section>
+          </main>
+
+          <p className="px-3 text-center text-xs leading-relaxed text-muted-foreground">
             Guest mode keeps your study data on this device. Google sign-in personalizes your
             account and prepares cloud sync for later.
           </p>

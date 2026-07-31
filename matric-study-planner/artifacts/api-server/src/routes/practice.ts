@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
 import { ENGLISH_ONLY_INSTRUCTION, hasUrduScript } from "../config/genericAi";
+import { getSubjectPersona } from "../config/subjectPersonas";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,7 @@ interface CheckDefinitionRequestBody {
 }
 
 const FAST_PRACTICE_MODEL = process.env["GROQ_PRACTICE_FAST_MODEL"] ?? "llama-3.1-8b-instant";
+const URDU_PRACTICE_MODEL = process.env["GROQ_URDU_PRACTICE_MODEL"] ?? "qwen/qwen3.6-27b";
 
 function isQuestionType(value: unknown): value is QuestionType {
   return value === "mcq" || value === "short" || value === "long" || value === "definition";
@@ -71,6 +73,26 @@ function examStyleInstruction(style: ExamStyleTag): string {
   }
 }
 
+function requestedJsonShape(questionTypes: QuestionType[]): string {
+  const lines: string[] = ["{"];
+  const fields: string[] = [];
+  if (questionTypes.includes("mcq")) {
+    fields.push('  "mcqs": [{ "question": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0, "explanation": "..." }]');
+  }
+  if (questionTypes.includes("short")) {
+    fields.push('  "shortQuestions": [{ "question": "...", "modelAnswer": "..." }]');
+  }
+  if (questionTypes.includes("long")) {
+    fields.push('  "longQuestions": [{ "question": "...", "modelAnswer": "..." }]');
+  }
+  if (questionTypes.includes("definition")) {
+    fields.push('  "definitions": [{ "term": "...", "definition": "..." }]');
+  }
+  lines.push(fields.join(",\n"));
+  lines.push("}");
+  return lines.join("\n");
+}
+
 function stripJson(raw: string): string {
   let cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
@@ -103,7 +125,12 @@ function buildSystemPrompt({
   mode,
   targets,
   totalQuestions,
+  questionTypes,
+  countPerType,
   examStyle,
+  persona,
+  languageInstruction,
+  expectsUrduScript,
 }: {
   subject: string;
   chapter: string;
@@ -111,7 +138,12 @@ function buildSystemPrompt({
   mode: PracticeMode;
   targets: Array<{ subject: string; chapter: string; reason?: string }>;
   totalQuestions?: number;
+  questionTypes: QuestionType[];
+  countPerType: number;
   examStyle: ExamStyleTag;
+  persona: string;
+  languageInstruction: string;
+  expectsUrduScript: boolean;
 }): string {
   const targetText =
     targets.length > 1
@@ -131,22 +163,27 @@ function buildSystemPrompt({
     mode === "revision"
       ? "This is revision mode. Mix question styles for active recall and keep questions exam-relevant."
       : "";
+  const requestedTypesText = questionTypes.join(", ");
+  const countInstruction =
+    mode === "quiz" && totalQuestions
+      ? `Generate exactly ${totalQuestions} MCQs total.`
+      : `Generate exactly ${countPerType} question(s) for each requested type: ${requestedTypesText}.`;
+  const jsonShape = requestedJsonShape(questionTypes);
 
   return `You are creating exam practice questions for a Matric-level (grade 9-10) student in Pakistan, following the ${board} syllabus. Generate questions strictly from these target chapters:
 ${targetText}
 ${distribution}
 ${quizInstruction}
 ${revisionInstruction}
+${countInstruction}
 ${examStyleInstruction(examStyle)}
-${ENGLISH_ONLY_INSTRUCTION}
-Match the difficulty and phrasing style of real board exam papers. Respond ONLY with valid JSON, no markdown, no explanation, in this exact structure:
-{
-  "mcqs": [{ "question": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0, "explanation": "..." }],
-  "shortQuestions": [{ "question": "...", "modelAnswer": "..." }],
-  "longQuestions": [{ "question": "...", "modelAnswer": "..." }],
-  "definitions": [{ "term": "...", "definition": "..." }]
-}
-Only include the arrays for question types that were requested; omit others entirely.`;
+${persona}
+${languageInstruction}
+Match the difficulty and phrasing style of real board exam papers. Respond ONLY with compact valid JSON, no markdown, no explanation, in this exact structure:
+${jsonShape}
+Include no top-level arrays except the ones shown above. ${
+    expectsUrduScript ? "Every JSON string value must be written in Urdu script." : "Every JSON string value must be English only."
+  }`;
 }
 
 function containsBlockedScript(value: unknown): boolean {
@@ -213,31 +250,40 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
   }
 
   const groq = new Groq({ apiKey });
-  const model = FAST_PRACTICE_MODEL;
   const safeExamStyle = normalizeExamStyle(examStyle);
+  const cleanSubject = subject.trim();
+  const personaMatch = getSubjectPersona(cleanSubject);
+  const model = personaMatch.expectsUrduScript ? URDU_PRACTICE_MODEL : FAST_PRACTICE_MODEL;
+  console.log(`[subject-persona] /api/generate-practice subject="${cleanSubject}" matched="${personaMatch.key}"`);
 
   try {
     const completion = await groq.chat.completions.create({
       model,
       temperature: 0.25,
       max_tokens: 4096,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content: buildSystemPrompt({
-            subject: subject.trim(),
+            subject: cleanSubject,
             chapter: chapter.trim(),
             board: board.trim() || "Punjab Board",
             mode,
             targets,
             totalQuestions: safeTotalQuestions,
+            questionTypes,
+            countPerType: safeCount,
             examStyle: safeExamStyle,
+            persona: personaMatch.persona,
+            languageInstruction: personaMatch.languageInstruction,
+            expectsUrduScript: personaMatch.expectsUrduScript,
           }),
         },
         {
           role: "user",
           content: JSON.stringify({
-            subject: subject.trim(),
+            subject: cleanSubject,
             chapter: chapter.trim(),
             board: board.trim() || "Punjab Board",
             mode,
@@ -257,7 +303,7 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
       throw new Error("Practice response was not a JSON object");
     }
 
-    if (containsBlockedScript(data)) {
+    if (!personaMatch.expectsUrduScript && containsBlockedScript(data)) {
       res.status(422).json({ ok: false, error: "The AI returned non-English practice content. Please retry." });
       return;
     }
