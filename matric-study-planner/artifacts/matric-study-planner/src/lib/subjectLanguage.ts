@@ -1,18 +1,3 @@
-export type SubjectStudyLanguage = 'english' | 'urdu';
-
-const URDU_SUBJECT_NAMES: Record<string, string> = {
-  Physics: 'طبیعیات',
-  Chemistry: 'کیمیا',
-  Mathematics: 'ریاضی',
-  Math: 'ریاضی',
-  Biology: 'حیاتیات',
-  'Computer Science': 'کمپیوٹر سائنس',
-  English: 'انگریزی',
-  Urdu: 'اردو',
-  Islamiat: 'اسلامیات',
-  'Pakistan Studies': 'مطالعہ پاکستان',
-};
-
 const URDU_CHAPTER_NAMES: Record<string, Record<string, string>> = {
   Physics: {
     Measurements: 'پیمائش',
@@ -117,50 +102,11 @@ const URDU_STARTER_QUESTIONS: Record<string, string[]> = {
   Urdu: ['تشریح کا درست طریقہ بتائیں', 'درخواست کا خاکہ لکھیں'],
 };
 
-export const LANGUAGE_FIXED_SUBJECTS: Record<string, SubjectStudyLanguage> = {
-  English: 'english',
-  Urdu: 'urdu',
-};
-
-export function canChooseSubjectLanguage(subject: string): boolean {
-  return !LANGUAGE_FIXED_SUBJECTS[subject];
+export function isSubjectUrdu(subject: string): boolean {
+  return subject === 'Urdu';
 }
 
-export function defaultSubjectLanguage(subject: string): SubjectStudyLanguage {
-  if (LANGUAGE_FIXED_SUBJECTS[subject]) return LANGUAGE_FIXED_SUBJECTS[subject];
-  if (subject === 'Islamiat' || subject === 'Pakistan Studies') return 'urdu';
-  return 'english';
-}
-
-export function getSubjectStudyLanguage(
-  subject: string,
-  subjectLanguages?: Record<string, SubjectStudyLanguage>,
-): SubjectStudyLanguage {
-  return LANGUAGE_FIXED_SUBJECTS[subject] ?? subjectLanguages?.[subject] ?? defaultSubjectLanguage(subject);
-}
-
-export function normalizeSubjectLanguages(
-  subjects: string[],
-  current?: Record<string, SubjectStudyLanguage>,
-): Record<string, SubjectStudyLanguage> {
-  const result: Record<string, SubjectStudyLanguage> = {};
-  for (const subject of subjects) {
-    result[subject] = current?.[subject] ?? defaultSubjectLanguage(subject);
-  }
-  return result;
-}
-
-export function isSubjectUrdu(
-  subject: string,
-  subjectLanguages?: Record<string, SubjectStudyLanguage>,
-): boolean {
-  return getSubjectStudyLanguage(subject, subjectLanguages) === 'urdu';
-}
-
-export function subjectDisplayName(
-  subject: string,
-  _subjectLanguages?: Record<string, SubjectStudyLanguage>,
-): string {
+export function subjectDisplayName(subject: string): string {
   return subject;
 }
 
@@ -171,26 +117,19 @@ export function subjectNameDirectionClass(subject: string): string {
 export function chapterDisplayName(
   subject: string,
   chapter: string,
-  subjectLanguages?: Record<string, SubjectStudyLanguage>,
 ): string {
-  return isSubjectUrdu(subject, subjectLanguages)
+  return isSubjectUrdu(subject)
     ? URDU_CHAPTER_NAMES[subject]?.[chapter] ?? chapter
     : chapter;
 }
 
-export function subjectDirectionClass(
-  subject: string,
-  subjectLanguages?: Record<string, SubjectStudyLanguage>,
-): string {
-  return isSubjectUrdu(subject, subjectLanguages) ? 'font-urdu text-right leading-loose [direction:rtl]' : '';
+export function subjectDirectionClass(subject: string): string {
+  return isSubjectUrdu(subject) ? 'font-urdu text-right leading-loose [direction:rtl]' : '';
 }
 
-export function subjectStarterQuestions(
-  subject: string,
-  subjectLanguages?: Record<string, SubjectStudyLanguage>,
-): string[] {
+export function subjectStarterQuestions(subject: string): string[] {
   if (subject === 'General') return ['Explain photosynthesis', "What is Newton's second law?", 'How do I revise algebra?'];
-  if (isSubjectUrdu(subject, subjectLanguages)) {
+  if (isSubjectUrdu(subject)) {
     return URDU_STARTER_QUESTIONS[subject] ?? ['اہم نکات آسان الفاظ میں سمجھائیں', 'امتحان کے لحاظ سے خلاصہ بتائیں'];
   }
   return ['Explain photosynthesis', "What is Newton's second law?", 'How do I revise algebra?'];

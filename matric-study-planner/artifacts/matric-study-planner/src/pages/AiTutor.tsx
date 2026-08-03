@@ -6,7 +6,6 @@ import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
 import {
-  getSubjectStudyLanguage,
   subjectDisplayName,
   subjectStarterQuestions,
 } from '@/lib/subjectLanguage';
@@ -239,8 +238,8 @@ export default function AiTutor() {
     [profile?.subjects],
   );
   const starterQuestions = useMemo(
-    () => subjectStarterQuestions(selectedSubject, profile?.subjectLanguages),
-    [profile?.subjectLanguages, selectedSubject],
+    () => subjectStarterQuestions(selectedSubject),
+    [selectedSubject],
   );
 
   useEffect(() => {
@@ -294,11 +293,6 @@ export default function AiTutor() {
       )
       .slice(-8)
       .map(({ role, content }) => ({ role, content }));
-    const studyLanguage =
-      selectedSubject === 'General'
-        ? undefined
-        : getSubjectStudyLanguage(selectedSubject, profile?.subjectLanguages);
-
     try {
       let data: { reply?: string; error?: string };
       if (attachment) {
@@ -308,7 +302,6 @@ export default function AiTutor() {
         formData.append('conversationHistory', JSON.stringify(conversationHistory));
         formData.append('file', attachment.file);
         if (selectedSubject !== 'General') formData.append('subject', selectedSubject);
-        if (studyLanguage) formData.append('studyLanguage', studyLanguage);
         if (profile?.board) formData.append('board', profile.board);
         data = await uploadTutorRequest(formData, setUploadProgress);
       } else {
@@ -318,7 +311,6 @@ export default function AiTutor() {
           body: JSON.stringify({
             message: trimmed,
             subject: selectedSubject === 'General' ? undefined : selectedSubject,
-            studyLanguage,
             board: profile?.board,
             currentMode,
             conversationHistory,
@@ -418,7 +410,7 @@ export default function AiTutor() {
             >
               {subjectOptions.map((subject) => (
                 <option key={subject} value={subject}>
-                  {subject === 'General' ? 'General' : subjectDisplayName(subject, profile?.subjectLanguages)}
+                  {subject === 'General' ? 'General' : subjectDisplayName(subject)}
                 </option>
               ))}
             </select>

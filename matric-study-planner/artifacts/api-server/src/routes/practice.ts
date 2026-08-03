@@ -19,7 +19,6 @@ interface PracticeRequestBody {
   subject?: string;
   chapter?: string;
   board?: string;
-  studyLanguage?: string;
   questionTypes?: QuestionType[];
   countPerType?: number;
   totalQuestions?: number;
@@ -202,7 +201,6 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
     mode = "chapter",
     chapters,
     examStyle,
-    studyLanguage,
   } = req.body as PracticeRequestBody;
 
   const targets =
@@ -254,9 +252,9 @@ router.post("/generate-practice", async (req: Request, res: Response): Promise<v
   const groq = new Groq({ apiKey });
   const safeExamStyle = normalizeExamStyle(examStyle);
   const cleanSubject = subject.trim();
-  const personaMatch = getSubjectPersona(cleanSubject, studyLanguage);
+  const personaMatch = getSubjectPersona(cleanSubject);
   const model = personaMatch.expectsUrduScript ? URDU_PRACTICE_MODEL : FAST_PRACTICE_MODEL;
-  console.log(`[subject-persona] /api/generate-practice subject="${cleanSubject}" language="${studyLanguage ?? ""}" matched="${personaMatch.key}"`);
+  console.log(`[subject-persona] /api/generate-practice subject="${cleanSubject}" matched="${personaMatch.key}"`);
 
   try {
     const completion = await groq.chat.completions.create({

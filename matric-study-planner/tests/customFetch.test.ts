@@ -63,7 +63,7 @@ test('throws ResponseParseError for successful JSON responses that contain HTML'
     });
 
   await assert.rejects(
-    customFetch('/api/explain-chapter', { responseType: 'json' }),
+    customFetch('/api/health', { responseType: 'json' }),
     (error) => {
       assert.ok(error instanceof ResponseParseError);
       assert.equal(error.status, 200);

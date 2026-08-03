@@ -35,7 +35,6 @@ interface TutorChatRequestBody {
   message?: string;
   subject?: string;
   board?: string;
-  studyLanguage?: string;
   currentMode: StudyMode;
   conversationHistory?: ConversationMessage[] | string;
 }
@@ -82,17 +81,15 @@ function buildSystemPrompt({
   currentMode,
   subject,
   board,
-  studyLanguage,
 }: {
   currentMode: StudyMode;
   subject?: string;
   board?: string;
-  studyLanguage?: string;
 }): string {
   const context: string[] = [];
   if (subject && subject !== "General") context.push(`Subject focus: ${subject}.`);
   if (board) context.push(`Board context: ${board}.`);
-  const personaMatch = getSubjectPersona(subject, studyLanguage);
+  const personaMatch = getSubjectPersona(subject);
 
   return `You are a friendly, patient tutor helping a Matric-level (grade 9-10) student in Pakistan understand a topic. Explain in simple, clear language appropriate for their grade level - not university-level depth. Use short paragraphs, and if relevant, a simple example or analogy. If asked something unrelated to their studies, gently redirect them back to academics. Keep responses concise (aim for 100-200 words) since students are reading on mobile.
 ${context.length ? `\n${context.join("\n")}` : ""}
@@ -223,7 +220,7 @@ function runUpload(req: Request, res: Response, next: (err?: unknown) => void) {
 }
 
 router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promise<void> => {
-  const { message, subject, board, studyLanguage, currentMode, conversationHistory } = req.body as TutorChatRequestBody;
+  const { message, subject, board, currentMode, conversationHistory } = req.body as TutorChatRequestBody;
   const uploadedFile = req.file;
   const trimmedMessage = typeof message === "string" ? message.trim() : "";
 
@@ -238,9 +235,8 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
   }
 
   const safeSubject = getTextField(subject);
-  const safeStudyLanguage = getTextField(studyLanguage);
-  const personaMatch = getSubjectPersona(safeSubject, safeStudyLanguage);
-  console.log(`[subject-persona] /api/tutor-chat subject="${safeSubject ?? ""}" language="${safeStudyLanguage ?? ""}" matched="${personaMatch.key}"`);
+  const personaMatch = getSubjectPersona(safeSubject);
+  console.log(`[subject-persona] /api/tutor-chat subject="${safeSubject ?? ""}" matched="${personaMatch.key}"`);
 
   if (!uploadedFile) {
     const instantReply = personaMatch.expectsUrduScript
@@ -265,7 +261,6 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     currentMode,
     subject: safeSubject,
     board: getTextField(board),
-    studyLanguage: safeStudyLanguage,
   });
 
   try {

@@ -40,12 +40,8 @@ import {
   toDateInputValue,
 } from '@/lib/dateOnly';
 import {
-  canChooseSubjectLanguage,
-  getSubjectStudyLanguage,
-  normalizeSubjectLanguages,
   subjectDisplayName,
   subjectNameDirectionClass,
-  type SubjectStudyLanguage,
 } from '@/lib/subjectLanguage';
 
 const MODE_OPTIONS: { value: StudyMode | null; label: string; icon: string; cls: string }[] = [
@@ -79,7 +75,6 @@ export default function Profile() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [draftExamDate, setDraftExamDate] = useState('');
   const [draftSubjects, setDraftSubjects] = useState<string[]>([]);
-  const [draftSubjectLanguages, setDraftSubjectLanguages] = useState<Record<string, SubjectStudyLanguage>>({});
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -91,7 +86,6 @@ export default function Profile() {
     if (!profile) return;
     setDraftExamDate(toDateInputValue(profile.examDate));
     setDraftSubjects(profile.subjects);
-    setDraftSubjectLanguages(normalizeSubjectLanguages(profile.subjects, profile.subjectLanguages));
   }, [profile]);
 
   const totals = useMemo(() => {
@@ -117,36 +111,17 @@ export default function Profile() {
   const daysLeft = Math.max(0, daysUntilDateOnly(profile.examDate));
   const hasProfileChanges =
     draftExamDate !== toDateInputValue(profile.examDate) ||
-    draftSubjects.join('|') !== profile.subjects.join('|') ||
-    JSON.stringify(normalizeSubjectLanguages(draftSubjects, draftSubjectLanguages)) !==
-      JSON.stringify(normalizeSubjectLanguages(profile.subjects, profile.subjectLanguages));
+    draftSubjects.join('|') !== profile.subjects.join('|');
 
   function toggleSubject(subject: string) {
     setProfileMessage(null);
     setDraftSubjects((prev) => {
       if (prev.includes(subject)) {
-        setDraftSubjectLanguages((current) => {
-          const next = { ...current };
-          delete next[subject];
-          return next;
-        });
         return prev.filter((item) => item !== subject);
       }
 
-      setDraftSubjectLanguages((current) => ({
-        ...current,
-        [subject]: getSubjectStudyLanguage(subject, current),
-      }));
       return [...prev, subject];
     });
-  }
-
-  function setDraftSubjectLanguage(subject: string, language: SubjectStudyLanguage) {
-    setProfileMessage(null);
-    setDraftSubjectLanguages((current) => ({
-      ...current,
-      [subject]: language,
-    }));
   }
 
   function saveProfileChanges() {
@@ -172,7 +147,6 @@ export default function Profile() {
       ...profile,
       board: profile.board,
       subjects: draftSubjects,
-      subjectLanguages: normalizeSubjectLanguages(draftSubjects, draftSubjectLanguages),
       examDate: dateInputValueToExamDate(draftExamDate),
       onboardingComplete: true,
     });
@@ -247,7 +221,6 @@ export default function Profile() {
     const nextProfile = {
       board: profile.board,
       subjects: profile.subjects,
-      subjectLanguages: profile.subjectLanguages,
       examDate: dateInputValueToExamDate(todayDateOnly(date)),
       onboardingComplete: true,
     };
@@ -415,7 +388,7 @@ export default function Profile() {
             <div className="grid grid-cols-2 gap-2">
               {SUBJECTS.map((subject) => {
           const selected = draftSubjects.includes(subject);
-          const displayName = subjectDisplayName(subject, draftSubjectLanguages);
+          const displayName = subjectDisplayName(subject);
           return (
                   <button
                     key={subject}
@@ -443,59 +416,6 @@ export default function Profile() {
               })}
             </div>
           </div>
-
-          {draftSubjects.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Study Language
-              </p>
-              <div className="space-y-2">
-                {draftSubjects.map((subject) => {
-                  const selectedLanguage = getSubjectStudyLanguage(subject, draftSubjectLanguages);
-                  return (
-                    <div key={subject} className="rounded-2xl border border-border bg-background p-3">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <SubjectIcon subject={subject} className="h-5 w-5 shrink-0 text-base" />
-                          <p className={`truncate text-sm font-bold text-foreground ${subjectNameDirectionClass(subject)}`}>
-                            {subjectDisplayName(subject)}
-                          </p>
-                        </div>
-                        {!canChooseSubjectLanguage(subject) && (
-                          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-                            Fixed
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(['english', 'urdu'] as const).map((language) => {
-                          const disabled =
-                            (subject === 'English' && language === 'urdu') ||
-                            (subject === 'Urdu' && language === 'english');
-                          const active = selectedLanguage === language;
-                          return (
-                            <button
-                              key={language}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() => setDraftSubjectLanguage(subject, language)}
-                              className={`min-h-[38px] rounded-xl border px-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${
-                                active
-                                  ? 'border-primary bg-primary text-primary-foreground'
-                                  : 'border-border bg-card text-muted-foreground'
-                              }`}
-                            >
-                              {language === 'english' ? 'English' : 'Urdu'}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <div className="flex items-center gap-3 pt-1">
             <Button

@@ -15,7 +15,6 @@ const SUBJECT_PERSONA_TEXT = {
 } as const;
 
 export type SubjectPersonaKey = keyof typeof SUBJECT_PERSONA_TEXT | "Default";
-export type StudyLanguage = "english" | "urdu";
 
 export interface SubjectPersonaMatch {
   key: SubjectPersonaKey;
@@ -38,25 +37,16 @@ const NORMALIZED_SUBJECT_PERSONAS = new Map(
 export const DEFAULT_SUBJECT_PERSONA =
   "Use the existing generic tutor persona for this subject. Keep explanations simple, accurate, and exam-focused for a Matric-level student.";
 
-function normalizeStudyLanguage(language: unknown): StudyLanguage | undefined {
-  return language === "english" || language === "urdu" ? language : undefined;
+function expectsUrduForSubject(subjectKey: SubjectPersonaKey): boolean {
+  return subjectKey === "Urdu";
 }
 
-function resolvedStudyLanguage(subjectKey: SubjectPersonaKey, requestedLanguage: unknown): StudyLanguage {
-  if (subjectKey === "English") return "english";
-  if (subjectKey === "Urdu") return "urdu";
-  return normalizeStudyLanguage(requestedLanguage) ?? "english";
-}
-
-export function getSubjectPersona(
-  subject: string | undefined,
-  requestedLanguage?: unknown,
-): SubjectPersonaMatch {
+export function getSubjectPersona(subject: string | undefined): SubjectPersonaMatch {
   const normalizedSubject = normalizeSubjectName(subject ?? "");
   // Matching is exact after trim/lowercase normalization; no partial matching or subject fallback is allowed.
   const matched = NORMALIZED_SUBJECT_PERSONAS.get(normalizedSubject);
   const key = matched?.key ?? "Default";
-  const expectsUrduScript = resolvedStudyLanguage(key, requestedLanguage) === "urdu";
+  const expectsUrduScript = expectsUrduForSubject(key);
 
   return {
     key,

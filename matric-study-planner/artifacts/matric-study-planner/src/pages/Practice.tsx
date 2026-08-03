@@ -32,7 +32,6 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
 import {
   chapterDisplayName,
-  getSubjectStudyLanguage,
   subjectDirectionClass,
   subjectDisplayName,
   subjectNameDirectionClass,
@@ -135,14 +134,6 @@ function scorePercent(score: number, total: number): number {
 
 function targetKey(target: ChapterTarget): string {
   return `${target.subject}::${target.chapter}`;
-}
-
-function commonStudyLanguage(
-  targets: ChapterTarget[],
-  subjectLanguages: Parameters<typeof getSubjectStudyLanguage>[1],
-): 'english' | 'urdu' | undefined {
-  const languages = new Set(targets.map((target) => getSubjectStudyLanguage(target.subject, subjectLanguages)));
-  return languages.size === 1 ? [...languages][0] : undefined;
 }
 
 function attemptType(attempt: PracticeAttempt): PracticeAttemptType {
@@ -303,7 +294,7 @@ export default function Practice() {
         flagged.set(key, {
           subject: attempt.subject,
           chapter: attempt.chapter,
-          reason: `${subjectDisplayName(attempt.subject, profile?.subjectLanguages)} - ${chapterDisplayName(attempt.subject, attempt.chapter, profile?.subjectLanguages)}: scored ${percent}% in recent practice`,
+          reason: `${subjectDisplayName(attempt.subject)} - ${chapterDisplayName(attempt.subject, attempt.chapter)}: scored ${percent}% in recent practice`,
         });
       }
     });
@@ -315,7 +306,7 @@ export default function Practice() {
       if (flagged.has(key) || latestByChapter.has(key)) continue;
       flagged.set(key, {
         ...target,
-        reason: `${subjectDisplayName(target.subject, profile?.subjectLanguages)} - ${chapterDisplayName(target.subject, target.chapter, profile?.subjectLanguages)}: marked complete, but no practice attempt yet`,
+        reason: `${subjectDisplayName(target.subject)} - ${chapterDisplayName(target.subject, target.chapter)}: marked complete, but no practice attempt yet`,
       });
     }
 
@@ -323,13 +314,13 @@ export default function Practice() {
       allChapterTargets.slice(0, 4).forEach((target) => {
         flagged.set(targetKey(target), {
           ...target,
-          reason: `${subjectDisplayName(target.subject, profile?.subjectLanguages)} - ${chapterDisplayName(target.subject, target.chapter, profile?.subjectLanguages)}: starter revision pick from your selected subjects`,
+          reason: `${subjectDisplayName(target.subject)} - ${chapterDisplayName(target.subject, target.chapter)}: starter revision pick from your selected subjects`,
         });
       });
     }
 
     return [...flagged.values()].slice(0, 6);
-  }, [allChapterTargets, chapterCompletion, practiceHistory, profile?.subjectLanguages]);
+  }, [allChapterTargets, chapterCompletion, practiceHistory]);
   const quizMcqs = quizSet?.mcqs ?? [];
   const quizScore = quizMcqs.reduce((score, mcq, index) => {
     return quizAnswers[index] === mcq.correctIndex ? score + 1 : score;
@@ -488,7 +479,6 @@ export default function Practice() {
     setDefinitionError(null);
 
     try {
-      const studyLanguage = commonStudyLanguage(requestTargets, profile.subjectLanguages);
       const res = await fetch(apiUrl('/api/generate-practice'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -496,7 +486,6 @@ export default function Practice() {
           subject: targetSubject,
           chapter: targetChapter,
           board: profile.board,
-          studyLanguage,
           questionTypes: targetQuestionTypes,
           examStyle: targetExamStyle,
           countPerType,
@@ -558,7 +547,6 @@ export default function Practice() {
     setQuizStartedAt(null);
 
     try {
-      const studyLanguage = commonStudyLanguage(selectedQuizTargets, profile.subjectLanguages);
       const res = await fetch(apiUrl('/api/generate-practice'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -566,7 +554,6 @@ export default function Practice() {
           subject: quizSubject,
           chapter: quizSubject === 'All Subjects' ? 'Mixed quiz' : 'Selected chapters quiz',
           board: profile.board,
-          studyLanguage,
           mode: 'quiz',
           chapters: selectedQuizTargets,
           questionTypes: ['mcq'],
@@ -604,7 +591,7 @@ export default function Practice() {
       revisionReasons: targets.map(
         (item) =>
           item.reason ??
-          `${subjectDisplayName(item.subject, profile?.subjectLanguages)} - ${chapterDisplayName(item.subject, item.chapter, profile?.subjectLanguages)}`,
+          `${subjectDisplayName(item.subject)} - ${chapterDisplayName(item.subject, item.chapter)}`,
       ),
       questionTypes: ['mcq', 'short', 'definition'],
       examStyle: 'past-paper',
@@ -686,11 +673,11 @@ export default function Practice() {
       ? 'تمام مضامین'
       : item === 'Targeted Revision'
       ? item
-      : subjectDisplayName(item, profile.subjectLanguages);
+      : subjectDisplayName(item);
   const labelChapter = (itemSubject: string, itemChapter: string) =>
     itemChapter === 'Mixed quiz' || itemChapter === 'Selected chapters quiz' || itemChapter === 'Targeted Revision'
       ? itemChapter
-      : chapterDisplayName(itemSubject, itemChapter, profile.subjectLanguages);
+      : chapterDisplayName(itemSubject, itemChapter);
   const labelTarget = (target: ChapterTarget) =>
     `${labelSubject(target.subject)} - ${labelChapter(target.subject, target.chapter)}`;
 
@@ -773,7 +760,7 @@ export default function Practice() {
             >
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Chapter</p>
-                <p className={`truncate text-sm font-bold text-foreground ${subjectDirectionClass(subject, profile.subjectLanguages)}`}>
+                <p className={`truncate text-sm font-bold text-foreground ${subjectDirectionClass(subject)}`}>
                   {chapter ? labelChapter(subject, chapter) : 'Select a chapter'}
                 </p>
               </div>
@@ -801,7 +788,7 @@ export default function Practice() {
                         chapter === item ? 'bg-primary/10 text-primary' : 'text-foreground'
                       }`}
                     >
-                      <span className={subjectDirectionClass(subject, profile.subjectLanguages)}>
+                      <span className={subjectDirectionClass(subject)}>
                         {labelChapter(subject, item)}
                       </span>
                       {chapter === item && <Check size={15} />}
@@ -1491,7 +1478,7 @@ export default function Practice() {
                   <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
                     {examStyleLabel(selectedAttempt.examStyle)}
                   </span>
-                  <h2 className={`text-xl font-black text-foreground ${subjectDirectionClass(selectedAttempt.subject, profile.subjectLanguages)}`}>
+                  <h2 className={`text-xl font-black text-foreground ${subjectDirectionClass(selectedAttempt.subject)}`}>
                     {labelChapter(selectedAttempt.subject, selectedAttempt.chapter)}
                   </h2>
                   <p className={`mt-1 text-sm font-semibold text-muted-foreground ${subjectNameDirectionClass(selectedAttempt.subject)}`}>

@@ -10,7 +10,6 @@ import React, {
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import type { AiSchedule } from '@/types/schedule';
 import { addDaysDateOnly, daysUntilDateOnly, todayDateOnly } from '@/lib/dateOnly';
-import { normalizeSubjectLanguages, type SubjectStudyLanguage } from '@/lib/subjectLanguage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +28,6 @@ export interface Profile {
   subjects: string[];
   examDate: string;
   onboardingComplete: boolean;
-  subjectLanguages?: Record<string, SubjectStudyLanguage>;
 }
 
 export interface StudyEvent {
@@ -283,8 +281,10 @@ function normalizeCompletionForSubjects(subjects: string[], storedCompletion: un
 
 function normalizeProfile(profile: Profile): Profile {
   return {
-    ...profile,
-    subjectLanguages: normalizeSubjectLanguages(profile.subjects, profile.subjectLanguages),
+    board: profile.board,
+    subjects: profile.subjects,
+    examDate: profile.examDate,
+    onboardingComplete: profile.onboardingComplete,
   };
 }
 
@@ -541,12 +541,6 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     const demoProfile = normalizeProfile({
       board: 'Punjab Board',
       subjects: demoSubjects,
-      subjectLanguages: {
-        Physics: 'english',
-        Chemistry: 'english',
-        Mathematics: 'english',
-        Biology: 'english',
-      },
       examDate: addDaysDateOnly(88),
       onboardingComplete: true,
     });

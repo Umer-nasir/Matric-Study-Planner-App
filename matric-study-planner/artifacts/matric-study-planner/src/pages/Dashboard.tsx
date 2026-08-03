@@ -24,7 +24,6 @@ import {
   subjectDirectionClass,
   subjectDisplayName,
   subjectNameDirectionClass,
-  type SubjectStudyLanguage,
 } from '@/lib/subjectLanguage';
 import type { ChapterCompletion, ChapterState } from '@/context/AppContext';
 import type { ScheduleDay } from '@/types/schedule';
@@ -167,13 +166,11 @@ function WeeklyView({
   chapterCompletion,
   toggleChapter,
   isFocus,
-  subjectLanguages,
 }: {
   days: ScheduleDay[];
   chapterCompletion: ChapterCompletion;
   toggleChapter: (subject: string, chapter: string) => void;
   isFocus: boolean;
-  subjectLanguages?: Record<string, SubjectStudyLanguage>;
 }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [openDay, setOpenDay] = useState<string | null>(todayStr);
@@ -247,8 +244,8 @@ function WeeklyView({
                   <div className="border-t border-border divide-y divide-border">
                     {day.blocks.map((block, i) => {
                       const checked = getChapterState(chapterCompletion[block.subject]?.[block.chapter]).done;
-                      const displaySubject = subjectDisplayName(block.subject, subjectLanguages);
-                      const displayChapter = chapterDisplayName(block.subject, block.chapter, subjectLanguages);
+                      const displaySubject = subjectDisplayName(block.subject);
+                      const displayChapter = chapterDisplayName(block.subject, block.chapter);
                       return (
                         <div key={i} className="flex items-center gap-3 px-4 py-3">
                           <TaskCheckbox
@@ -257,7 +254,7 @@ function WeeklyView({
                             onToggle={() => toggleChapter(block.subject, block.chapter)}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium leading-snug ${subjectDirectionClass(block.subject, subjectLanguages)} ${
+                            <p className={`text-sm font-medium leading-snug ${subjectDirectionClass(block.subject)} ${
                               checked ? 'line-through text-muted-foreground' : 'text-foreground'
                             }`}>
                               {displayChapter}
@@ -293,7 +290,6 @@ function ChapterSelectionModal({
   onToggleChapter,
   onSetSubjectSelection,
   isGenerating,
-  subjectLanguages,
 }: {
   subjects: string[];
   chapterCompletion: ChapterCompletion;
@@ -303,7 +299,6 @@ function ChapterSelectionModal({
   onToggleChapter: (subject: string, chapter: string) => void;
   onSetSubjectSelection: (subject: string, selected: boolean) => void;
   isGenerating: boolean;
-  subjectLanguages?: Record<string, SubjectStudyLanguage>;
 }) {
   const [openSubject, setOpenSubject] = useState<string | null>(subjects[0] ?? null);
 
@@ -352,7 +347,7 @@ function ChapterSelectionModal({
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {subjects.map((subject) => {
-            const displaySubject = subjectDisplayName(subject, subjectLanguages);
+            const displaySubject = subjectDisplayName(subject);
             const incomplete = (SYLLABUS_DATA[subject] ?? []).filter(
               (chapter) => !getChapterState(chapterCompletion[subject]?.[chapter]).done,
             );
@@ -423,7 +418,7 @@ function ChapterSelectionModal({
                                 const selected = getChapterState(
                                   chapterCompletion[subject]?.[chapter],
                                 ).selectedForSchedule;
-                                const displayChapter = chapterDisplayName(subject, chapter, subjectLanguages);
+                                const displayChapter = chapterDisplayName(subject, chapter);
                                 return (
                                   <button
                                     key={chapter}
@@ -441,7 +436,7 @@ function ChapterSelectionModal({
                                     >
                                       <CalendarCheck size={16} />
                                     </span>
-                                    <span className={`min-w-0 flex-1 text-sm font-medium text-foreground ${subjectDirectionClass(subject, subjectLanguages)}`}>
+                                    <span className={`min-w-0 flex-1 text-sm font-medium text-foreground ${subjectDirectionClass(subject)}`}>
                                       {displayChapter}
                                     </span>
                                   </button>
@@ -571,9 +566,9 @@ export default function Dashboard() {
   }, [practiceHistory]);
 
   const reminderText = nextReminderTask
-    ? `${subjectDisplayName(nextReminderTask.subject, profile.subjectLanguages)}: ${chapterDisplayName(nextReminderTask.subject, nextReminderTask.chapter, profile.subjectLanguages)} at ${reminderSettings.time}`
+    ? `${subjectDisplayName(nextReminderTask.subject)}: ${chapterDisplayName(nextReminderTask.subject, nextReminderTask.chapter)} at ${reminderSettings.time}`
     : weakChapter
-    ? `Revise ${subjectDisplayName(weakChapter.subject, profile.subjectLanguages)}: ${chapterDisplayName(weakChapter.subject, weakChapter.chapter, profile.subjectLanguages)} at ${reminderSettings.time}`
+    ? `Revise ${subjectDisplayName(weakChapter.subject)}: ${chapterDisplayName(weakChapter.subject, weakChapter.chapter)} at ${reminderSettings.time}`
     : `Open your study planner at ${reminderSettings.time}`;
 
   useEffect(() => {
@@ -599,9 +594,9 @@ export default function Dashboard() {
     if (!due || reminderSettings.lastShownDate === todayKey) return;
 
     const message = weakChapter
-      ? `Revision reminder: ${subjectDisplayName(weakChapter.subject, profile.subjectLanguages)} - ${chapterDisplayName(weakChapter.subject, weakChapter.chapter, profile.subjectLanguages)} was weak last time.`
+      ? `Revision reminder: ${subjectDisplayName(weakChapter.subject)} - ${chapterDisplayName(weakChapter.subject, weakChapter.chapter)} was weak last time.`
       : nextReminderTask
-      ? `Study reminder: ${subjectDisplayName(nextReminderTask.subject, profile.subjectLanguages)} - ${chapterDisplayName(nextReminderTask.subject, nextReminderTask.chapter, profile.subjectLanguages)}.`
+      ? `Study reminder: ${subjectDisplayName(nextReminderTask.subject)} - ${chapterDisplayName(nextReminderTask.subject, nextReminderTask.chapter)}.`
       : 'Study reminder: open your planner and complete one focused task.';
 
     setReminderBanner(message);
@@ -612,7 +607,6 @@ export default function Dashboard() {
   }, [
     markReminderShown,
     nextReminderTask,
-    profile.subjectLanguages,
     reminderTick,
     reminderSettings.enabled,
     reminderSettings.lastShownDate,
@@ -705,12 +699,12 @@ export default function Dashboard() {
     `Streak: ${streak} day${streak !== 1 ? 's' : ''}`,
     `Badges: ${unlockedMilestones.length ? unlockedMilestones.map((m) => m.title).join(', ') : 'No badges yet'}`,
     'Subject progress:',
-    ...subjectProgress.map((item) => `- ${subjectDisplayName(item.subject, profile.subjectLanguages)}: ${item.done}/${item.total} (${item.pct}%)`),
+    ...subjectProgress.map((item) => `- ${subjectDisplayName(item.subject)}: ${item.done}/${item.total} (${item.pct}%)`),
     'Weekly plan:',
     ...((aiSchedule?.week ?? [{ day: 'Today', date: todayStr, blocks: todaysTasks }])
       .flatMap((day) =>
         day.blocks.slice(0, 3).map((block) =>
-          `- ${day.day}: ${subjectDisplayName(block.subject, profile.subjectLanguages)} - ${chapterDisplayName(block.subject, block.chapter, profile.subjectLanguages)} (${block.durationMinutes ?? 30} min)`,
+          `- ${day.day}: ${subjectDisplayName(block.subject)} - ${chapterDisplayName(block.subject, block.chapter)} (${block.durationMinutes ?? 30} min)`,
         ),
       )
       .slice(0, 10)),
@@ -1055,8 +1049,8 @@ export default function Dashboard() {
                     <Card className="divide-y divide-border p-0 overflow-hidden" noTap>
                       {todaysTasks.map(({ subject, chapter, durationMinutes }, idx) => {
                         const checked = getChapterState(chapterCompletion[subject]?.[chapter]).done;
-                        const displaySubject = subjectDisplayName(subject, profile.subjectLanguages);
-                        const displayChapter = chapterDisplayName(subject, chapter, profile.subjectLanguages);
+                        const displaySubject = subjectDisplayName(subject);
+                        const displayChapter = chapterDisplayName(subject, chapter);
                         return (
                           <motion.div
                             key={`${subject}__${chapter}`}
@@ -1066,7 +1060,7 @@ export default function Dashboard() {
                           >
                             <TaskCheckbox checked={checked} subject={subject} onToggle={() => toggleChapter(subject, chapter)} />
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium leading-snug transition-colors duration-200 ${subjectDirectionClass(subject, profile.subjectLanguages)} ${
+                              <p className={`text-sm font-medium leading-snug transition-colors duration-200 ${subjectDirectionClass(subject)} ${
                                 checked ? 'line-through text-muted-foreground' : 'text-foreground'
                               }`}>
                                 {displayChapter}
@@ -1123,7 +1117,6 @@ export default function Dashboard() {
                             chapterCompletion={chapterCompletion}
                             toggleChapter={toggleChapter}
                             isFocus={isFocus}
-                            subjectLanguages={profile.subjectLanguages}
                           />
                         </motion.div>
                       )}
@@ -1174,7 +1167,7 @@ export default function Dashboard() {
                           <SubjectIcon subject={subject} className="h-5 w-5" />
                         </div>
                         <p className={`text-xs font-semibold text-foreground leading-snug truncate mb-1.5 ${subjectNameDirectionClass(subject)}`}>
-                          {subjectDisplayName(subject, profile.subjectLanguages)}
+                          {subjectDisplayName(subject)}
                         </p>
                         <ProgressBar percentage={pct} height="h-1.5" />
                         <p className="text-[10px] text-muted-foreground mt-1 font-medium">{done}/{total} · {pct}%</p>
@@ -1239,7 +1232,6 @@ export default function Dashboard() {
             onToggleChapter={toggleChapterScheduleSelection}
             onSetSubjectSelection={setSubjectScheduleSelection}
             isGenerating={isLoadingSchedule}
-            subjectLanguages={profile.subjectLanguages}
           />
         )}
       </AnimatePresence>

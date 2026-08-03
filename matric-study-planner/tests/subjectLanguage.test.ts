@@ -2,11 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  canChooseSubjectLanguage,
   chapterDisplayName,
-  defaultSubjectLanguage,
-  getSubjectStudyLanguage,
-  normalizeSubjectLanguages,
+  isSubjectUrdu,
   subjectDisplayName,
 } from '../artifacts/matric-study-planner/src/lib/subjectLanguage.ts';
 import {
@@ -14,46 +11,23 @@ import {
   normalizeSubjectName,
 } from '../artifacts/api-server/src/config/subjectPersonas.ts';
 
-test('keeps English and Urdu subjects fixed to their own response languages', () => {
-  assert.equal(canChooseSubjectLanguage('English'), false);
-  assert.equal(canChooseSubjectLanguage('Urdu'), false);
-  assert.equal(getSubjectStudyLanguage('English', { English: 'urdu' }), 'english');
-  assert.equal(getSubjectStudyLanguage('Urdu', { Urdu: 'english' }), 'urdu');
+test('keeps Urdu rendering limited to the Urdu subject', () => {
+  assert.equal(isSubjectUrdu('English'), false);
+  assert.equal(isSubjectUrdu('Urdu'), true);
 });
 
-test('preserves mixed language preferences for selectable subjects', () => {
-  const subjects = ['Physics', 'Islamiat', 'Pakistan Studies', 'Computer Science'];
-  const normalized = normalizeSubjectLanguages(subjects, {
-    Physics: 'urdu',
-    'Computer Science': 'english',
-  });
-
-  assert.deepEqual(normalized, {
-    Physics: 'urdu',
-    Islamiat: 'urdu',
-    'Pakistan Studies': 'urdu',
-    'Computer Science': 'english',
-  });
-  assert.equal(getSubjectStudyLanguage('Physics', normalized), 'urdu');
-  assert.equal(getSubjectStudyLanguage('Computer Science', normalized), 'english');
+test('uses English rendering for selectable subjects', () => {
+  assert.equal(isSubjectUrdu('Physics'), false);
+  assert.equal(isSubjectUrdu('Islamiat'), false);
+  assert.equal(isSubjectUrdu('Pakistan Studies'), false);
+  assert.equal(isSubjectUrdu('Computer Science'), false);
 });
 
-test('uses subject defaults when a preference is missing', () => {
-  assert.equal(defaultSubjectLanguage('Physics'), 'english');
-  assert.equal(defaultSubjectLanguage('Islamiat'), 'urdu');
-  assert.equal(getSubjectStudyLanguage('Chemistry', {}), 'english');
-});
-
-test('shows subject names in English everywhere while chapter language follows preference', () => {
-  const languages = {
-    Physics: 'urdu',
-    Mathematics: 'english',
-  } as const;
-
-  assert.equal(subjectDisplayName('Physics', languages), 'Physics');
-  assert.equal(chapterDisplayName('Physics', 'Measurements', languages), 'پیمائش');
-  assert.equal(subjectDisplayName('Mathematics', languages), 'Mathematics');
-  assert.equal(chapterDisplayName('Mathematics', 'Logarithms', languages), 'Logarithms');
+test('shows subject names and selectable subject chapters in English', () => {
+  assert.equal(subjectDisplayName('Physics'), 'Physics');
+  assert.equal(chapterDisplayName('Physics', 'Measurements'), 'Measurements');
+  assert.equal(subjectDisplayName('Mathematics'), 'Mathematics');
+  assert.equal(chapterDisplayName('Mathematics', 'Logarithms'), 'Logarithms');
   assert.equal(subjectDisplayName('English'), 'English');
 });
 
@@ -74,11 +48,8 @@ test('does not bleed personas through partial or unmatched subject names', () =>
   assert.equal(getSubjectPersona('Urdu').expectsUrduScript, true);
 });
 
-test('allows explicit Urdu study language without changing the subject persona match', () => {
-  const physicsInUrdu = getSubjectPersona('Physics', 'urdu');
-  assert.equal(physicsInUrdu.key, 'Default');
-  assert.equal(physicsInUrdu.expectsUrduScript, true);
-
-  assert.equal(getSubjectPersona('English', 'urdu').expectsUrduScript, false);
-  assert.equal(getSubjectPersona('Urdu', 'english').expectsUrduScript, true);
+test('backend language follows only the matched subject persona', () => {
+  assert.equal(getSubjectPersona('Physics').expectsUrduScript, false);
+  assert.equal(getSubjectPersona('English').expectsUrduScript, false);
+  assert.equal(getSubjectPersona('Urdu').expectsUrduScript, true);
 });
