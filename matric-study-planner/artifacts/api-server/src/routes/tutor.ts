@@ -1,6 +1,5 @@
 import { createRequire } from "node:module";
 import { Router, type IRouter, type Request, type Response } from "express";
-import Groq from "groq-sdk";
 import mammoth from "mammoth";
 import multer from "multer";
 import type pdfParseType from "pdf-parse";
@@ -13,9 +12,7 @@ const pdfParse = require("pdf-parse") as typeof pdfParseType;
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_EXTRACTED_CHARS = 4000;
-const FAST_TEXT_MODEL = process.env["GROQ_TUTOR_FAST_MODEL"] ?? "llama-3.1-8b-instant";
-const VISION_MODEL = "qwen/qwen3.6-27b";
-const URDU_TEXT_MODEL = process.env["GROQ_URDU_TEXT_MODEL"] ?? VISION_MODEL;
+const GEMINI_TUTOR_MODEL = process.env["GEMINI_TUTOR_MODEL"] ?? "gemini-2.5-flash";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -37,6 +34,32 @@ interface TutorChatRequestBody {
   board?: string;
   currentMode: StudyMode;
   conversationHistory?: ConversationMessage[] | string;
+}
+
+interface GeminiPart {
+  text?: string;
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
+}
+
+interface GeminiContent {
+  role: "user" | "model";
+  parts: GeminiPart[];
+}
+
+interface GeminiGenerateResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
 }
 
 function isStudyMode(value: unknown): value is StudyMode {
@@ -165,14 +188,72 @@ Student message: ${question}
 Answer their question about it. If no specific question was asked, summarize the key points relevant to their exam.`;
 }
 
+function geminiHistoryFromConversation(history: ConversationMessage[]): GeminiContent[] {
+  return history.map((item) => ({
+    role: item.role === "assistant" ? "model" : "user",
+    parts: [{ text: item.content }],
+  }));
+}
+
+function readGeminiText(data: GeminiGenerateResponse): string | null {
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const text = parts
+    .map((part) => part.text)
+    .filter((part): part is string => typeof part === "string")
+    .join("")
+    .trim();
+  return text || null;
+}
+
+async function generateGeminiTutorReply({
+  apiKey,
+  model,
+  systemPrompt,
+  contents,
+  temperature,
+  maxOutputTokens,
+}: {
+  apiKey: string;
+  model: string;
+  systemPrompt: string;
+  contents: GeminiContent[];
+  temperature: number;
+  maxOutputTokens: number;
+}): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: systemPrompt }],
+      },
+      contents,
+      generationConfig: {
+        temperature,
+        maxOutputTokens,
+      },
+    }),
+  });
+
+  const data = (await response.json().catch(() => ({}))) as GeminiGenerateResponse;
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? `Gemini request failed with status ${response.status}`);
+  }
+
+  const reply = readGeminiText(data);
+  if (!reply) throw new Error("No tutor response was returned");
+  return reply;
+}
+
 async function ensureEnglishReply({
-  groq,
+  apiKey,
   model,
   systemPrompt,
   originalUserContent,
   reply,
 }: {
-  groq: Groq;
+  apiKey: string;
   model: string;
   systemPrompt: string;
   originalUserContent: string;
@@ -180,23 +261,19 @@ async function ensureEnglishReply({
 }): Promise<string> {
   if (!hasUrduScript(reply)) return reply;
 
-  const corrected = await groq.chat.completions.create({
+  return generateGeminiTutorReply({
+    apiKey,
     model,
     temperature: 0,
-    max_tokens: 650,
-    messages: [
-      {
-        role: "system",
-        content: `${systemPrompt}\nTranslate the assistant draft into simple English only. Keep the meaning, remove all Urdu/Arabic script, and respond with the final answer only.`,
-      },
+    maxOutputTokens: 650,
+    systemPrompt: `${systemPrompt}\nTranslate the assistant draft into simple English only. Keep the meaning, remove all Urdu/Arabic script, and respond with the final answer only.`,
+    contents: [
       {
         role: "user",
-        content: `Student request:\n${originalUserContent}\n\nAssistant draft to convert to English:\n${reply}`,
+        parts: [{ text: `Student request:\n${originalUserContent}\n\nAssistant draft to convert to English:\n${reply}` }],
       },
     ],
   });
-
-  return corrected.choices[0]?.message?.content?.trim() ?? reply;
 }
 
 function runUpload(req: Request, res: Response, next: (err?: unknown) => void) {
@@ -248,15 +325,13 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     }
   }
 
-  const apiKey = process.env["GROQ_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
-    res.status(500).json({ error: "GROQ_API_KEY is not configured" });
+    res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
     return;
   }
 
-  const groq = new Groq({ apiKey });
   const safeHistory = sanitizeHistory(conversationHistory);
-  const textModel = personaMatch.expectsUrduScript ? URDU_TEXT_MODEL : FAST_TEXT_MODEL;
   const systemPrompt = buildSystemPrompt({
     currentMode,
     subject: safeSubject,
@@ -282,36 +357,32 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
       }
 
       if (kind === "image") {
-        const imageUrl = `data:${uploadedFile.mimetype};base64,${uploadedFile.buffer.toString("base64")}`;
-        const completion = await groq.chat.completions.create({
-          model: VISION_MODEL,
+        let reply = await generateGeminiTutorReply({
+          apiKey,
+          model: GEMINI_TUTOR_MODEL,
           temperature: currentMode === "focus" ? 0.2 : 0.45,
-          max_tokens: 650,
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...safeHistory,
+          maxOutputTokens: 650,
+          systemPrompt,
+          contents: [
+            ...geminiHistoryFromConversation(safeHistory),
             {
               role: "user",
-              content: [
+              parts: [
+                { text: `${trimmedMessage || "Please solve/explain this question."}\n\nThe student has shared a photo of a question. Read the question/problem in the image and provide a clear, step-by-step explanation appropriate for a Matric-level student.` },
                 {
-                  type: "text",
-                  text: `${trimmedMessage || "Please solve/explain this question."}\n\nThe student has shared a photo of a question. Read the question/problem in the image and provide a clear, step-by-step explanation appropriate for a Matric-level student.`,
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: imageUrl },
+                  inlineData: {
+                    mimeType: uploadedFile.mimetype,
+                    data: uploadedFile.buffer.toString("base64"),
+                  },
                 },
               ],
             },
-          ] as any,
+          ],
         });
-
-        let reply = completion.choices[0]?.message?.content?.trim();
-        if (!reply) throw new Error("No tutor response was returned");
         if (!personaMatch.expectsUrduScript) {
           reply = await ensureEnglishReply({
-            groq,
-            model: textModel,
+            apiKey,
+            model: GEMINI_TUTOR_MODEL,
             systemPrompt,
             originalUserContent: trimmedMessage || "Please solve/explain this question from the uploaded image.",
             reply,
@@ -340,26 +411,25 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
         truncated,
         fileName: uploadedFile.originalname,
       });
-      const completion = await groq.chat.completions.create({
-        model: textModel,
+      let reply = await generateGeminiTutorReply({
+        apiKey,
+        model: GEMINI_TUTOR_MODEL,
         temperature: currentMode === "focus" ? 0.2 : 0.45,
-        max_tokens: 550,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...safeHistory,
+        maxOutputTokens: 550,
+        systemPrompt,
+        contents: [
+          ...geminiHistoryFromConversation(safeHistory),
           {
             role: "user",
-            content: documentPrompt,
+            parts: [{ text: documentPrompt }],
           },
         ],
       });
 
-      let reply = completion.choices[0]?.message?.content?.trim();
-      if (!reply) throw new Error("No tutor response was returned");
       if (!personaMatch.expectsUrduScript) {
         reply = await ensureEnglishReply({
-          groq,
-          model: textModel,
+          apiKey,
+          model: GEMINI_TUTOR_MODEL,
           systemPrompt,
           originalUserContent: documentPrompt,
           reply,
@@ -373,25 +443,22 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
       return;
     }
 
-    const completion = await groq.chat.completions.create({
-      model: textModel,
+    let reply = await generateGeminiTutorReply({
+      apiKey,
+      model: GEMINI_TUTOR_MODEL,
       temperature: currentMode === "focus" ? 0.2 : 0.45,
-      max_tokens: 350,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...safeHistory,
-        { role: "user", content: trimmedMessage },
+      maxOutputTokens: 350,
+      systemPrompt,
+      contents: [
+        ...geminiHistoryFromConversation(safeHistory),
+        { role: "user", parts: [{ text: trimmedMessage }] },
       ],
     });
 
-    let reply = completion.choices[0]?.message?.content?.trim();
-    if (!reply) {
-      throw new Error("No tutor response was returned");
-    }
     if (!personaMatch.expectsUrduScript) {
       reply = await ensureEnglishReply({
-        groq,
-        model: textModel,
+        apiKey,
+        model: GEMINI_TUTOR_MODEL,
         systemPrompt,
         originalUserContent: trimmedMessage,
         reply,
