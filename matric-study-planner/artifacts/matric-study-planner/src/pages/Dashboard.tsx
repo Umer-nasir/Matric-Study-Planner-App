@@ -657,7 +657,7 @@ export default function Dashboard() {
       setShowChapterSelection(false);
       markScheduleSelectionConfigured();
     } catch (err) {
-      setScheduleError("Couldn't reach AI planner right now. Using your backup schedule.");
+      setScheduleError("Couldn't reach AI planner right now. Using your fallback schedule.");
     } finally {
       setIsLoadingSchedule(false);
     }

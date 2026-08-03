@@ -94,24 +94,6 @@ export interface ReminderSettings {
   lastShownDate?: string;
 }
 
-export interface BackupData {
-  version: 1;
-  exportedAt: string;
-  data: {
-    profile: Profile | null;
-    chapterCompletion: ChapterCompletion;
-    scheduleSelectionConfigured: boolean;
-    streak: { count: number; lastDate: string | null };
-    earnedBadges: string[];
-    aiSchedule: AiSchedule | null;
-    tutorChatHistory: TutorChatMessage[];
-    practiceHistory: PracticeAttempt[];
-    events: StudyEvent[];
-    reminderSettings: ReminderSettings;
-    definitionChecks: unknown;
-  };
-}
-
 export interface AppContextType {
   // Profile
   profile: Profile | null;
@@ -119,19 +101,14 @@ export interface AppContextType {
   clearProfile: () => void;
   resetProgress: () => void;
   loadDemoData: () => void;
-  exportBackupData: () => BackupData;
-  restoreBackupData: (backup: unknown) => void;
 
   // Mode
   currentMode: StudyMode;
-  simulatedMode: StudyMode | null;
-  setSimulatedMode: (mode: StudyMode | null) => void;
 
   // Streak
   streak: number;
   lastStudiedDate: string | null;
   recordStudyActivity: () => void;
-  setStreakForDemo: (count: number) => void;
 
   // Badges
   earnedBadges: string[];
@@ -180,9 +157,7 @@ export interface AppContextType {
 function computeMode(
   profile: Profile | null,
   overallProgress: number,
-  simulatedMode: StudyMode | null,
 ): StudyMode {
-  if (simulatedMode) return simulatedMode;
   if (!profile) return 'fun';
 
   const daysLeft = daysUntilDateOnly(profile.examDate);
@@ -322,7 +297,6 @@ const DEFAULT_REMINDER_SETTINGS: ReminderSettings = { enabled: false, time: '18:
 export function AppContextProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [profile, setProfileState] = useState<Profile | null>(null);
-  const [simulatedMode, setSimulatedModeState] = useState<StudyMode | null>(null);
   const [streak, setStreak] = useState(0);
   const [lastStudiedDate, setLastStudiedDate] = useState<string | null>(null);
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
@@ -454,88 +428,6 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('matric_definition_checks');
   }, []);
 
-  const exportBackupData = useCallback((): BackupData => ({
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    data: {
-      profile,
-      chapterCompletion,
-      scheduleSelectionConfigured,
-      streak: { count: streak, lastDate: lastStudiedDate },
-      earnedBadges,
-      aiSchedule,
-      tutorChatHistory,
-      practiceHistory,
-      events,
-      reminderSettings,
-      definitionChecks: loadJSON<unknown>('matric_definition_checks', {}),
-    },
-  }), [
-    aiSchedule,
-    chapterCompletion,
-    earnedBadges,
-    events,
-    lastStudiedDate,
-    practiceHistory,
-    profile,
-    reminderSettings,
-    scheduleSelectionConfigured,
-    streak,
-    tutorChatHistory,
-  ]);
-
-  const restoreBackupData = useCallback((backup: unknown) => {
-    const candidate = backup as BackupData;
-    if (!candidate || typeof candidate !== 'object' || candidate.version !== 1 || !candidate.data) {
-      throw new Error('This backup file is invalid or from an unsupported version.');
-    }
-
-    const restoredProfile = candidate.data.profile ? normalizeProfile(candidate.data.profile) : null;
-    const restoredCompletion =
-      restoredProfile?.subjects
-        ? normalizeCompletionForSubjects(restoredProfile.subjects, candidate.data.chapterCompletion ?? {})
-        : {};
-    const restoredStreak = candidate.data.streak ?? { count: 0, lastDate: null };
-    const restoredReminders = candidate.data.reminderSettings ?? DEFAULT_REMINDER_SETTINGS;
-
-    setProfileState(restoredProfile);
-    restoredProfile ? saveJSON('matric_profile', restoredProfile) : localStorage.removeItem('matric_profile');
-
-    setChapterCompletion(restoredCompletion);
-    saveJSON('matric_chapters', restoredCompletion);
-
-    setScheduleSelectionConfigured(Boolean(candidate.data.scheduleSelectionConfigured));
-    saveJSON('matric_schedule_selection_configured', Boolean(candidate.data.scheduleSelectionConfigured));
-
-    setStreak(Number(restoredStreak.count) || 0);
-    setLastStudiedDate(restoredStreak.lastDate ?? null);
-    saveJSON('matric_streak', { count: Number(restoredStreak.count) || 0, lastDate: restoredStreak.lastDate ?? null });
-
-    setEarnedBadges(Array.isArray(candidate.data.earnedBadges) ? candidate.data.earnedBadges : []);
-    saveJSON('matric_badges', Array.isArray(candidate.data.earnedBadges) ? candidate.data.earnedBadges : []);
-
-    setAiScheduleState(candidate.data.aiSchedule ?? null);
-    candidate.data.aiSchedule ? saveJSON('matric_ai_schedule', candidate.data.aiSchedule) : localStorage.removeItem('matric_ai_schedule');
-
-    setTutorChatHistoryState(Array.isArray(candidate.data.tutorChatHistory) ? candidate.data.tutorChatHistory : []);
-    saveJSON('tutorChatHistory', Array.isArray(candidate.data.tutorChatHistory) ? candidate.data.tutorChatHistory : []);
-
-    setPracticeHistory(Array.isArray(candidate.data.practiceHistory) ? candidate.data.practiceHistory : []);
-    saveJSON('matric_practice_history', Array.isArray(candidate.data.practiceHistory) ? candidate.data.practiceHistory : []);
-
-    setEvents(Array.isArray(candidate.data.events) ? candidate.data.events : []);
-    saveJSON('matric_events', Array.isArray(candidate.data.events) ? candidate.data.events : []);
-
-    const nextReminders = {
-      enabled: Boolean(restoredReminders.enabled),
-      time: restoredReminders.time || DEFAULT_REMINDER_SETTINGS.time,
-      lastShownDate: restoredReminders.lastShownDate,
-    };
-    setReminderSettingsState(nextReminders);
-    saveJSON('matric_reminder_settings', nextReminders);
-    saveJSON('matric_definition_checks', candidate.data.definitionChecks ?? {});
-  }, []);
-
   const loadDemoData = useCallback(() => {
     const demoSubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
     const demoProfile = normalizeProfile({
@@ -608,8 +500,8 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   // ── Mode ─────────────────────────────────────────────────────────────────
 
   const currentMode = useMemo(
-    () => computeMode(profile, overallProgress, simulatedMode),
-    [profile, overallProgress, simulatedMode],
+    () => computeMode(profile, overallProgress),
+    [profile, overallProgress],
   );
 
   const selectedScheduleChapterCount = useMemo(() => {
@@ -623,10 +515,6 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     }
     return count;
   }, [chapterCompletion, profile]);
-
-  const setSimulatedMode = useCallback((mode: StudyMode | null) => {
-    setSimulatedModeState(mode);
-  }, []);
 
   // ── Badges ───────────────────────────────────────────────────────────────
 
@@ -691,18 +579,6 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     setLastStudiedDate(today);
     saveJSON('matric_streak', { count: newStreak, lastDate: today });
   }, [lastStudiedDate, streak, unlockBadge]);
-
-  const setStreakForDemo = useCallback(
-    (count: number) => {
-      const today = todayStr();
-      setStreak(count);
-      setLastStudiedDate(today);
-      saveJSON('matric_streak', { count, lastDate: today });
-      if (count >= 3) unlockBadge('three_day_streak');
-      if (count >= 7) unlockBadge('seven_day_streak');
-    },
-    [unlockBadge],
-  );
 
   // ── Chapter completion ────────────────────────────────────────────────────
 
@@ -906,15 +782,10 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
         clearProfile,
         resetProgress,
         loadDemoData,
-        exportBackupData,
-        restoreBackupData,
         currentMode,
-        simulatedMode,
-        setSimulatedMode,
         streak,
         lastStudiedDate,
         recordStudyActivity,
-        setStreakForDemo,
         earnedBadges,
         pendingBadges,
         unlockBadge,

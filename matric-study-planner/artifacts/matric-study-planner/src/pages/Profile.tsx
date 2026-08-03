@@ -7,16 +7,12 @@ import {
   BookOpen,
   Calendar,
   Check,
-  ChevronDown,
-  ChevronUp,
   Flame,
   GraduationCap,
   Lock,
   LogOut,
   RotateCcw,
   Save,
-  ShieldCheck,
-  Upload,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation } from 'wouter';
@@ -30,13 +26,11 @@ import { useAuthContext } from '@/context/AuthContext';
 import { SUBJECTS } from '@/data/syllabus';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
-import type { StudyMode } from '@/context/AppContext';
 import {
   dateInputValueToExamDate,
   dateOnlyToLocalDate,
   daysUntilDateOnly,
   examDateToLocalDate,
-  todayDateOnly,
   toDateInputValue,
 } from '@/lib/dateOnly';
 import {
@@ -44,24 +38,12 @@ import {
   subjectNameDirectionClass,
 } from '@/lib/subjectLanguage';
 
-const MODE_OPTIONS: { value: StudyMode | null; label: string; icon: string; cls: string }[] = [
-  { value: 'fun', label: 'Fun', icon: '🎉', cls: 'border-violet-300 bg-violet-50 text-violet-700' },
-  { value: 'balanced', label: 'Balanced', icon: '⚡', cls: 'border-amber-300 bg-amber-50 text-amber-700' },
-  { value: 'focus', label: 'Focus', icon: '🎯', cls: 'border-red-300 bg-red-50 text-red-700' },
-  { value: null, label: 'Auto', icon: 'A', cls: 'border-gray-300 bg-gray-50 text-gray-700' },
-];
-
 export default function Profile() {
   const {
     profile,
     setProfile,
     resetProgress,
-    exportBackupData,
-    restoreBackupData,
     streak,
-    simulatedMode,
-    setSimulatedMode,
-    setStreakForDemo,
     earnedBadges,
     chapterCompletion,
     reminderSettings,
@@ -69,14 +51,13 @@ export default function Profile() {
   } = useAppContext();
   const { currentUser, isGuest, signInWithGoogle, signOut } = useAuthContext();
   const [, setLocation] = useLocation();
-  const [showDev, setShowDev] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [draftExamDate, setDraftExamDate] = useState('');
   const [draftSubjects, setDraftSubjects] = useState<string[]>([]);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification === 'undefined' ? 'denied' : Notification.permission,
@@ -165,69 +146,23 @@ export default function Profile() {
 
   async function requestReminderPermission() {
     if (typeof Notification === 'undefined') {
-      setBackupMessage('This browser does not support notifications. In-app reminders will still work.');
+      setReminderMessage('This browser does not support notifications. In-app reminders will still work.');
       return;
     }
     try {
       const permission = await Notification.requestPermission();
       setNotificationPermission(permission);
       if (permission !== 'granted') {
-        setBackupMessage('Notification permission was not granted. Dashboard reminders will still show in-app.');
+        setReminderMessage('Notification permission was not granted. Dashboard reminders will still show in-app.');
       }
     } catch {
-      setBackupMessage('Could not request notification permission. In-app reminders will still work.');
+      setReminderMessage('Could not request notification permission. In-app reminders will still work.');
     }
   }
 
   function updateReminderEnabled(enabled: boolean) {
     setReminderSettings({ ...reminderSettings, enabled });
-    setBackupMessage(enabled ? 'Reminders enabled.' : 'Reminders turned off.');
-  }
-
-  function downloadBackup() {
-    const backup = exportBackupData();
-    const date = todayDateOnly();
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `matric-study-planner-backup-${date}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setBackupMessage('Backup downloaded. Keep it safe before resetting progress.');
-  }
-
-  async function restoreBackup(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    try {
-      const parsed = JSON.parse(await file.text()) as unknown;
-      restoreBackupData(parsed);
-      setBackupMessage('Backup restored successfully.');
-    } catch (err) {
-      setBackupMessage(err instanceof Error ? err.message : 'Could not restore this backup file.');
-    }
-  }
-
-  function simulateExamDate(daysFromToday: number) {
-    if (!profile) return;
-
-    const date = new Date();
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + daysFromToday);
-
-    const nextProfile = {
-      board: profile.board,
-      subjects: profile.subjects,
-      examDate: dateInputValueToExamDate(todayDateOnly(date)),
-      onboardingComplete: true,
-    };
-    setProfile(nextProfile);
-    setDraftExamDate(toDateInputValue(nextProfile.examDate));
-    setSimulatedMode(null);
-    setProfileMessage(`Exam date simulated: ${daysFromToday} days left.`);
+    setReminderMessage(enabled ? 'Reminders enabled.' : 'Reminders turned off.');
   }
 
   async function handleProfileGoogleSignIn() {
@@ -254,7 +189,7 @@ export default function Profile() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Profile</h1>
-            <p className="text-sm text-muted-foreground mt-1">Student settings and demo controls.</p>
+            <p className="text-sm text-muted-foreground mt-1">Student settings and progress.</p>
           </div>
           <ModeIndicator />
         </div>
@@ -513,122 +448,12 @@ export default function Profile() {
           <p className="text-xs text-muted-foreground">
             Notification permission: <span className="font-bold">{notificationPermission}</span>
           </p>
-        </Card>
-
-        <Card className="p-5 space-y-3" noTap>
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base font-bold text-foreground">Backup & Restore</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Download a JSON backup before resetting, or restore one on a new device.
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-2">
-            <Button variant="outline" fullWidth onClick={downloadBackup}>
-              Download Backup
-            </Button>
-            <label className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 text-sm font-bold text-foreground">
-              <Upload className="h-4 w-4" />
-              Restore from Backup
-              <input
-                type="file"
-                accept="application/json,.json"
-                className="sr-only"
-                onChange={restoreBackup}
-              />
-            </label>
-          </div>
-          {backupMessage && (
+          {reminderMessage && (
             <p className="rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-xs font-semibold text-muted-foreground">
-              {backupMessage}
+              {reminderMessage}
             </p>
           )}
         </Card>
-
-        <div className="overflow-hidden rounded-2xl border border-dashed border-muted-foreground/30 bg-card">
-          <button
-            type="button"
-            onClick={() => setShowDev((v) => !v)}
-            className="flex min-h-[44px] w-full items-center justify-between px-4 py-3 text-sm font-semibold text-muted-foreground"
-            data-testid="button-toggle-dev"
-            aria-expanded={showDev}
-          >
-            <span>Demo controls: simulate exam date</span>
-            {showDev ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-
-          <AnimatePresence>
-            {showDev && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-                className="overflow-hidden"
-              >
-                <div className="space-y-4 border-t border-dashed border-muted-foreground/20 px-4 pb-4 pt-4">
-                  <div>
-                    <p className="mb-2 text-xs text-muted-foreground">Simulate exam date</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[7, 21, 90].map((days) => (
-                        <button
-                          key={days}
-                          type="button"
-                          onClick={() => simulateExamDate(days)}
-                          data-testid={`button-sim-exam-${days}`}
-                          className="min-h-[44px] rounded-2xl border border-primary/30 bg-primary/8 px-2 text-xs font-bold text-primary"
-                        >
-                          {days} days
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs text-muted-foreground">Active mode override</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {MODE_OPTIONS.map((opt) => (
-                        <button
-                          key={String(opt.value)}
-                          type="button"
-                          onClick={() => setSimulatedMode(opt.value)}
-                          data-testid={`button-sim-mode-${opt.value ?? 'auto'}`}
-                          className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl border px-2 text-xs font-bold transition-all ${
-                            simulatedMode === opt.value
-                              ? `${opt.cls} ring-2 ring-current ring-offset-1`
-                              : 'border-border bg-background text-muted-foreground'
-                          }`}
-                        >
-                          <span>{opt.icon}</span>
-                          <span>{opt.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs text-muted-foreground">Simulate streak</p>
-                    <div className="flex gap-2">
-                      {[1, 3, 7].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setStreakForDemo(n)}
-                          data-testid={`button-sim-streak-${n}`}
-                          className="min-h-[44px] flex-1 rounded-2xl border border-orange-300 bg-orange-50 px-2 text-xs font-bold text-orange-700"
-                        >
-                          {n} days
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
 
         <Card className="p-5 space-y-3 border-destructive/20" noTap>
           <div className="flex items-start gap-3">
@@ -679,15 +504,8 @@ export default function Profile() {
                 Are you sure?
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                This permanently deletes your saved study data. Download a backup first if you may need it later.
+                This permanently deletes your saved study data from this device.
               </p>
-              <button
-                type="button"
-                onClick={downloadBackup}
-                className="mt-4 min-h-[44px] w-full rounded-2xl border border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary"
-              >
-                Download Backup First
-              </button>
               <label className="mt-4 block">
                 <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   Type RESET to confirm
