@@ -122,11 +122,23 @@ function buildSimplePdf(lines: string[]): Blob {
 
 // ── Task checkbox ─────────────────────────────────────────────────────────────
 
-function TaskCheckbox({ checked, subject, onToggle }: { checked: boolean; subject: string; onToggle: () => void }) {
+function TaskCheckbox({
+  checked,
+  subject,
+  onToggle,
+  compact = false,
+}: {
+  checked: boolean;
+  subject: string;
+  onToggle: () => void;
+  compact?: boolean;
+}) {
   return (
     <motion.button
       onClick={onToggle}
-      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+      className={`flex flex-shrink-0 items-center justify-center rounded-full border-2 shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+        compact ? 'h-6 w-6' : 'h-8 w-8'
+      } ${
         checked
           ? 'border-primary bg-primary text-primary-foreground shadow-primary/20'
           : 'border-slate-200 bg-slate-50 text-transparent hover:border-primary/30 hover:bg-primary/5'
@@ -143,7 +155,7 @@ function TaskCheckbox({ checked, subject, onToggle }: { checked: boolean; subjec
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-            viewBox="0 0 12 10" width="12" height="10" fill="none"
+            viewBox="0 0 12 10" width={compact ? '10' : '12'} height={compact ? '8' : '10'} fill="none"
           >
             <motion.path
               d="M1 5l3.5 3.5L11 1"
@@ -1058,7 +1070,9 @@ export default function Dashboard() {
                             transition={{ delay: idx * 0.05, type: 'spring', stiffness: 300, damping: 28 }}
                             className="flex items-center gap-3 px-4 py-3.5"
                           >
-                            <TaskCheckbox checked={checked} subject={subject} onToggle={() => toggleChapter(subject, chapter)} />
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-xl text-primary">
+                              <SubjectIcon subject={subject} />
+                            </div>
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm font-medium leading-snug transition-colors duration-200 ${subjectDirectionClass(subject)} ${
                                 checked ? 'line-through text-muted-foreground' : 'text-foreground'
@@ -1075,6 +1089,7 @@ export default function Dashboard() {
                                 )}
                               </p>
                             </div>
+                            <TaskCheckbox compact checked={checked} subject={subject} onToggle={() => toggleChapter(subject, chapter)} />
                           </motion.div>
                         );
                       })}
