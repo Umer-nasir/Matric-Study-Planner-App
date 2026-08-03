@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ModeIndicator } from '@/components/ModeIndicator';
 import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
+import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
 import {
   subjectDisplayName,
@@ -33,6 +34,26 @@ const ACCEPTED_ATTACHMENT_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
+const CHAPTER_MATCH_STOP_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'about',
+  'chapter',
+  'chapters',
+  'explain',
+  'for',
+  'from',
+  'in',
+  'into',
+  'of',
+  'on',
+  'please',
+  'the',
+  'to',
+  'what',
+  'write',
+]);
 
 function createMessage(
   role: TutorChatMessage['role'],
@@ -77,6 +98,59 @@ function getInstantTutorReply(message: string): string | null {
 
   return 'Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.';
 }
+
+function normalizeForChapterMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function getMatchTokens(value: string): string[] {
+  return normalizeForChapterMatch(value)
+    .split(' ')
+    .map((token) => (token.length > 4 && token.endsWith('s') ? token.slice(0, -1) : token))
+    .filter((token) => token.length > 2 && !CHAPTER_MATCH_STOP_WORDS.has(token));
+}
+
+function detectSubjectFromChapter(message: string, subjects: string[]): string | null {
+  const normalizedMessage = ` ${normalizeForChapterMatch(message)} `;
+  const messageTokens = new Set(getMatchTokens(message));
+  if (messageTokens.size === 0) return null;
+
+  const candidates: Array<{ subject: string; score: number }> = [];
+
+  for (const subject of subjects) {
+    const chapters = SYLLABUS_DATA[subject] ?? [];
+    for (const chapter of chapters) {
+      const normalizedChapter = normalizeForChapterMatch(chapter);
+      const chapterTokens = getMatchTokens(chapter);
+      if (!normalizedChapter || chapterTokens.length === 0) continue;
+
+      if (normalizedMessage.includes(` ${normalizedChapter} `)) {
+        candidates.push({ subject, score: 100 + chapterTokens.length });
+        continue;
+      }
+
+      const matchedTokens = chapterTokens.filter((token) => messageTokens.has(token));
+      if (chapterTokens.length >= 2 && matchedTokens.length === chapterTokens.length) {
+        candidates.push({ subject, score: 80 + matchedTokens.length });
+      } else if (chapterTokens.length === 1 && matchedTokens.length === 1 && chapterTokens[0].length >= 6) {
+        candidates.push({ subject, score: 60 });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  const tied = candidates.some((candidate) => candidate !== best && candidate.score === best.score && candidate.subject !== best.subject);
+  return tied ? null : best.subject;
+}
+
 function createImageThumbnail(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -230,6 +304,7 @@ export default function AiTutor() {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const autoSelectedSubjectRef = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -245,8 +320,31 @@ export default function AiTutor() {
   useEffect(() => {
     if (!subjectOptions.includes(selectedSubject)) {
       setSelectedSubject('General');
+      autoSelectedSubjectRef.current = null;
     }
   }, [selectedSubject, subjectOptions]);
+
+  useEffect(() => {
+    if (draft.trim().length === 0) return;
+
+    const detectedSubject = detectSubjectFromChapter(draft, subjectOptions.filter((subject) => subject !== 'General'));
+    const canAutoChange =
+      selectedSubject === 'General' ||
+      (autoSelectedSubjectRef.current !== null && selectedSubject === autoSelectedSubjectRef.current);
+
+    if (!canAutoChange) return;
+
+    if (detectedSubject && detectedSubject !== selectedSubject) {
+      autoSelectedSubjectRef.current = detectedSubject;
+      setSelectedSubject(detectedSubject);
+      return;
+    }
+
+    if (!detectedSubject && autoSelectedSubjectRef.current) {
+      autoSelectedSubjectRef.current = null;
+      setSelectedSubject('General');
+    }
+  }, [draft, selectedSubject, subjectOptions]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -255,6 +353,15 @@ export default function AiTutor() {
   async function sendMessage(rawMessage: string, attachment = pendingAttachment) {
     const trimmed = rawMessage.trim();
     if ((!trimmed && !attachment) || isSending) return;
+    const detectedSubject = detectSubjectFromChapter(
+      trimmed,
+      subjectOptions.filter((subject) => subject !== 'General'),
+    );
+    const subjectForRequest = detectedSubject ?? selectedSubject;
+    if (detectedSubject && detectedSubject !== selectedSubject) {
+      autoSelectedSubjectRef.current = detectedSubject;
+      setSelectedSubject(detectedSubject);
+    }
 
     const attachmentMeta = attachment
       ? {
@@ -301,7 +408,7 @@ export default function AiTutor() {
         formData.append('currentMode', currentMode);
         formData.append('conversationHistory', JSON.stringify(conversationHistory));
         formData.append('file', attachment.file);
-        if (selectedSubject !== 'General') formData.append('subject', selectedSubject);
+        if (subjectForRequest !== 'General') formData.append('subject', subjectForRequest);
         if (profile?.board) formData.append('board', profile.board);
         data = await uploadTutorRequest(formData, setUploadProgress);
       } else {
@@ -310,7 +417,7 @@ export default function AiTutor() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: trimmed,
-            subject: selectedSubject === 'General' ? undefined : selectedSubject,
+            subject: subjectForRequest === 'General' ? undefined : subjectForRequest,
             board: profile?.board,
             currentMode,
             conversationHistory,
@@ -404,7 +511,10 @@ export default function AiTutor() {
           <div className="relative">
             <select
               value={selectedSubject}
-              onChange={(event) => setSelectedSubject(event.target.value)}
+              onChange={(event) => {
+                autoSelectedSubjectRef.current = null;
+                setSelectedSubject(event.target.value);
+              }}
               className="min-h-[44px] appearance-none rounded-2xl border border-border bg-background py-2 pl-3 pr-8 text-xs font-semibold text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               aria-label="Select tutor subject"
             >

@@ -900,7 +900,7 @@ export default function Practice() {
                       : 'border-border bg-background text-foreground'
                   }`}
                 >
-                  {labelSubject(item)}
+                  {item === 'All Subjects' ? 'All Subjects' : labelSubject(item)}
                 </button>
               ))}
             </div>

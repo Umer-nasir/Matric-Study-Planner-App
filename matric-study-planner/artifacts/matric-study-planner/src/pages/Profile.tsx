@@ -141,7 +141,8 @@ export default function Profile() {
       setShowResetConfirm(false);
       setResetConfirmText('');
     });
-    setLocation('/onboarding');
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+    window.location.assign(`${basePath}/onboarding`);
   }
 
   async function requestReminderPermission() {
