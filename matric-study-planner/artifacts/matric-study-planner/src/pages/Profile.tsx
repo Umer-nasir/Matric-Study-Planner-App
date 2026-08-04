@@ -266,20 +266,20 @@ export default function Profile() {
           )}
         </Card>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="p-4 text-center" noTap>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <Card className="p-3 text-center sm:p-4" noTap>
             <Calendar className="mx-auto mb-2 h-5 w-5 text-primary" />
             <div className="text-xl font-black text-foreground">{daysLeft}</div>
             <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Days</div>
           </Card>
-          <Card className="p-4 text-center" noTap>
+          <Card className="p-3 text-center sm:p-4" noTap>
             <Check className="mx-auto mb-2 h-5 w-5 text-emerald-600" />
             <div className="text-xl font-black text-foreground">{totals.completed}</div>
             <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
               Chapters
             </div>
           </Card>
-          <Card className="p-4 text-center" noTap>
+          <Card className="p-3 text-center sm:p-4" noTap>
             <Flame className="mx-auto mb-2 h-5 w-5 text-orange-500" />
             <div className="text-xl font-black text-foreground">{streak}</div>
             <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Streak</div>
@@ -396,7 +396,7 @@ export default function Profile() {
             </div>
             <Award size={20} className="text-amber-500" />
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4">
             {MILESTONES.map((milestone) => {
               const earned = earnedBadges.includes(milestone.id);
               return (

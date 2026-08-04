@@ -65,10 +65,10 @@ export default function Portal() {
   }
 
   return (
-    <div className="app-shell overflow-hidden">
+    <div className="portal-shell app-shell overflow-hidden">
       <div className="ambient-orb -right-20 top-20 h-52 w-52 bg-primary/10" />
       <div className="ambient-orb -left-28 top-[44%] h-60 w-60 bg-emerald-300/10" />
-      <div className="flex min-h-[100dvh] flex-col px-5 pb-7 pt-7 sm:px-7">
+      <div className="portal-frame flex min-h-[100dvh] flex-col px-5 pb-7 pt-7 sm:px-7">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -77,7 +77,7 @@ export default function Portal() {
         >
           <header className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[1.15rem] bg-[linear-gradient(145deg,#8275ff,#5840db)] text-primary-foreground shadow-[0_12px_28px_rgba(91,66,220,0.3),inset_0_1px_0_rgba(255,255,255,0.35)]">
+              <div className="portal-brand-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.15rem] bg-[linear-gradient(145deg,#8275ff,#5840db)] text-primary-foreground shadow-[0_12px_28px_rgba(91,66,220,0.3),inset_0_1px_0_rgba(255,255,255,0.35)]">
                 <BookOpenCheck size={25} />
               </div>
               <div>
@@ -89,21 +89,21 @@ export default function Portal() {
                 </h1>
               </div>
             </div>
-            <div className="glass-surface rounded-2xl px-3.5 py-2 text-right shadow-sm">
+            <div className="portal-grade-card glass-surface shrink-0 rounded-2xl px-3.5 py-2 text-right shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 Exam Focus
               </p>
-              <p className="text-sm font-black text-foreground">Grade 9-10</p>
+              <p className="whitespace-nowrap text-sm font-black text-foreground">Grade 9-10</p>
             </div>
           </header>
 
-          <main className="relative z-10 flex flex-1 flex-col justify-center py-7">
-            <section className="mb-6">
+          <main className="portal-main relative z-10 flex flex-1 flex-col justify-center py-7">
+            <section className="portal-preview mb-6">
               <motion.div
                 initial={{ opacity: 0, y: 14, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.08, type: 'spring', stiffness: 280, damping: 26 }}
-                className="premium-hero overflow-hidden rounded-[2rem] border border-white/15"
+                className="portal-preview-card premium-hero overflow-hidden rounded-[2rem] border border-white/15"
               >
                 <div className="border-b border-white/10 px-5 py-4">
                   <div className="flex items-start justify-between gap-4">
@@ -121,7 +121,7 @@ export default function Portal() {
                   </div>
                 </div>
 
-                <div className="space-y-3 p-4">
+                <div className="portal-task-list space-y-3 p-4">
                   {[
                     {
                       icon: CalendarDays,
@@ -146,7 +146,7 @@ export default function Portal() {
                     return (
                       <div
                         key={item.title}
-                        className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.075] px-3 py-3 backdrop-blur-sm"
+                        className="portal-task flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.075] px-3 py-3 backdrop-blur-sm"
                       >
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white">
                           <Icon size={18} />
@@ -163,20 +163,20 @@ export default function Portal() {
               </motion.div>
             </section>
 
-            <section className="mb-5 text-center">
+            <section className="portal-intro mb-5 text-center">
               <div className="eyebrow mb-3 justify-center">
                 <Zap size={12} fill="currentColor" /> Built for board exams
               </div>
-              <h2 className="font-display text-[2.4rem] font-extrabold leading-[1.04] text-foreground">
+              <h2 className="portal-title font-display text-[2.4rem] font-extrabold leading-[1.04] text-foreground">
                 Study smarter.<br />Arrive ready.
               </h2>
-              <p className="mx-auto mt-3 max-w-[330px] text-sm leading-relaxed text-muted-foreground">
+              <p className="portal-intro-copy mx-auto mt-3 max-w-[330px] text-sm leading-relaxed text-muted-foreground">
                 Build an exam-ready routine with chapter plans, AI help, practice, and progress in one calm workspace.
               </p>
             </section>
 
             <section
-              className="glass-surface rounded-[1.75rem] p-4"
+              className="portal-auth glass-surface rounded-[1.75rem] p-4"
               aria-label="Sign in options"
             >
               <div className="space-y-3">
@@ -213,7 +213,7 @@ export default function Portal() {
             </section>
           </main>
 
-          <p className="px-3 text-center text-xs leading-relaxed text-muted-foreground">
+          <p className="portal-footnote px-3 text-center text-xs leading-relaxed text-muted-foreground">
             Guest mode keeps your study data on this device. Google sign-in personalizes your
             account and prepares cloud sync for later.
           </p>

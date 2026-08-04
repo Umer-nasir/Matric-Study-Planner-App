@@ -4,13 +4,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ModeIndicator } from '@/components/ModeIndicator';
 import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
-import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
 import {
   subjectDisplayName,
   subjectStarterQuestions,
 } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
+import { detectTutorSubject } from '@/lib/tutorSubjectDetection';
 
 type TutorApiMessage = {
   role: 'user' | 'assistant';
@@ -34,26 +34,6 @@ const ACCEPTED_ATTACHMENT_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
-const CHAPTER_MATCH_STOP_WORDS = new Set([
-  'a',
-  'an',
-  'and',
-  'about',
-  'chapter',
-  'chapters',
-  'explain',
-  'for',
-  'from',
-  'in',
-  'into',
-  'of',
-  'on',
-  'please',
-  'the',
-  'to',
-  'what',
-  'write',
-]);
 
 function createMessage(
   role: TutorChatMessage['role'],
@@ -97,58 +77,6 @@ function getInstantTutorReply(message: string): string | null {
   }
 
   return 'Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.';
-}
-
-function normalizeForChapterMatch(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-function getMatchTokens(value: string): string[] {
-  return normalizeForChapterMatch(value)
-    .split(' ')
-    .map((token) => (token.length > 4 && token.endsWith('s') ? token.slice(0, -1) : token))
-    .filter((token) => token.length > 2 && !CHAPTER_MATCH_STOP_WORDS.has(token));
-}
-
-function detectSubjectFromChapter(message: string, subjects: string[]): string | null {
-  const normalizedMessage = ` ${normalizeForChapterMatch(message)} `;
-  const messageTokens = new Set(getMatchTokens(message));
-  if (messageTokens.size === 0) return null;
-
-  const candidates: Array<{ subject: string; score: number }> = [];
-
-  for (const subject of subjects) {
-    const chapters = SYLLABUS_DATA[subject] ?? [];
-    for (const chapter of chapters) {
-      const normalizedChapter = normalizeForChapterMatch(chapter);
-      const chapterTokens = getMatchTokens(chapter);
-      if (!normalizedChapter || chapterTokens.length === 0) continue;
-
-      if (normalizedMessage.includes(` ${normalizedChapter} `)) {
-        candidates.push({ subject, score: 100 + chapterTokens.length });
-        continue;
-      }
-
-      const matchedTokens = chapterTokens.filter((token) => messageTokens.has(token));
-      if (chapterTokens.length >= 2 && matchedTokens.length === chapterTokens.length) {
-        candidates.push({ subject, score: 80 + matchedTokens.length });
-      } else if (chapterTokens.length === 1 && matchedTokens.length === 1 && chapterTokens[0].length >= 6) {
-        candidates.push({ subject, score: 60 });
-      }
-    }
-  }
-
-  if (candidates.length === 0) return null;
-  candidates.sort((a, b) => b.score - a.score);
-  const best = candidates[0];
-  const tied = candidates.some((candidate) => candidate !== best && candidate.score === best.score && candidate.subject !== best.subject);
-  return tied ? null : best.subject;
 }
 
 function createImageThumbnail(file: File): Promise<string> {
@@ -327,7 +255,10 @@ export default function AiTutor() {
   useEffect(() => {
     if (draft.trim().length === 0) return;
 
-    const detectedSubject = detectSubjectFromChapter(draft, subjectOptions.filter((subject) => subject !== 'General'));
+    const detectedSubject = detectTutorSubject(
+      draft,
+      subjectOptions.filter((subject) => subject !== 'General'),
+    );
     const canAutoChange =
       selectedSubject === 'General' ||
       (autoSelectedSubjectRef.current !== null && selectedSubject === autoSelectedSubjectRef.current);
@@ -353,10 +284,16 @@ export default function AiTutor() {
   async function sendMessage(rawMessage: string, attachment = pendingAttachment) {
     const trimmed = rawMessage.trim();
     if ((!trimmed && !attachment) || isSending) return;
-    const detectedSubject = detectSubjectFromChapter(
-      trimmed,
-      subjectOptions.filter((subject) => subject !== 'General'),
-    );
+    const canAutoChange =
+      selectedSubject === 'General' ||
+      (autoSelectedSubjectRef.current !== null &&
+        selectedSubject === autoSelectedSubjectRef.current);
+    const detectedSubject = canAutoChange
+      ? detectTutorSubject(
+          trimmed,
+          subjectOptions.filter((subject) => subject !== 'General'),
+        )
+      : null;
     const subjectForRequest = detectedSubject ?? selectedSubject;
     if (detectedSubject && detectedSubject !== selectedSubject) {
       autoSelectedSubjectRef.current = detectedSubject;

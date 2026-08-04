@@ -123,17 +123,17 @@ export default function Onboarding() {
     : '';
 
   return (
-    <div className="app-shell flex flex-col">
+    <div className="app-shell flex h-[100dvh] flex-col overflow-hidden">
       <div className="ambient-orb -right-20 -top-20 h-64 w-64 bg-primary/10" />
       <div className="ambient-orb -left-24 top-[46%] h-52 w-52 bg-emerald-300/10" />
 
-      <div className="relative z-10 px-5 pb-6 pt-6 sm:px-7">
-        <div className="mb-7 flex items-center justify-between">
+      <div className="onboarding-header relative z-10 shrink-0 px-5 pb-6 pt-6 sm:px-7">
+        <div className="onboarding-brand-row mb-7 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/25">
               <BookOpenCheck size={20} />
             </div>
-            <div>
+            <div className="onboarding-brand-meta">
               <p className="font-display text-sm font-extrabold leading-none">Study Planner</p>
               <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Personal setup</p>
             </div>
@@ -158,7 +158,7 @@ export default function Onboarding() {
                     className="h-full rounded-full bg-[linear-gradient(90deg,#7667ff,#9c8fff)]"
                   />
                 </div>
-                <p className={`truncate text-[10px] font-bold ${isActive ? 'text-primary' : isComplete ? 'text-foreground' : 'text-muted-foreground'}`}>
+                <p className={`onboarding-step-labels truncate text-[10px] font-bold ${isActive ? 'text-primary' : isComplete ? 'text-foreground' : 'text-muted-foreground'}`}>
                   {isComplete ? 'Done' : label}
                 </p>
               </div>
@@ -167,7 +167,7 @@ export default function Onboarding() {
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden px-5 sm:px-7">
+      <div className="onboarding-content relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden px-5 sm:px-7">
         <AnimatePresence mode="wait" custom={direction}>
           {step === 1 && (
             <motion.div
@@ -178,15 +178,15 @@ export default function Onboarding() {
               animate="center"
               exit="exit"
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-              className="flex-1 flex flex-col"
+              className="onboarding-step flex min-h-0 flex-1 flex-col"
             >
-              <p className="eyebrow mb-3"><Sparkles size={12} /> Shape your study plan</p>
-              <h1 className="font-display mb-3 text-[2rem] font-extrabold leading-tight text-foreground">
+              <p className="onboarding-kicker eyebrow mb-3"><Sparkles size={12} /> Shape your study plan</p>
+              <h1 className="onboarding-title font-display mb-3 text-[2rem] font-extrabold leading-tight text-foreground">
                 Which board are you in?
               </h1>
-              <p className="mb-7 text-sm leading-relaxed text-muted-foreground">We’ll tailor every chapter and practice set to your syllabus.</p>
+              <p className="onboarding-copy mb-7 text-sm leading-relaxed text-muted-foreground">We’ll tailor every chapter and practice set to your syllabus.</p>
 
-              <div className="scrollbar-none flex-1 space-y-3 overflow-y-auto pb-28">
+              <div className="onboarding-list scrollbar-none min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-28">
                 {BOARDS.map((board, index) => (
                   <motion.button
                     key={board}
@@ -198,14 +198,14 @@ export default function Onboarding() {
                     whileTap={{ scale: 0.97 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                     data-testid={`board-select-${board.replace(/\s+/g, '-').toLowerCase()}`}
-                    className={`group flex w-full items-center justify-between rounded-[1.35rem] border p-4 text-left transition-all ${
+                    className={`onboarding-option group flex w-full items-center justify-between rounded-[1.35rem] border p-4 text-left transition-all ${
                       selectedBoard === board
                         ? 'border-primary/45 bg-primary/[0.075] shadow-[0_12px_28px_rgba(92,69,220,0.1)]'
                         : 'border-white/80 bg-card/85 shadow-[0_7px_24px_rgba(45,40,80,0.06)] hover:border-primary/20 hover:bg-white'
                     }`}
                   >
                     <span className="flex items-center gap-3.5">
-                      <span className={`flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-extrabold ${selectedBoard === board ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>
+                      <span className={`onboarding-option-icon flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-extrabold ${selectedBoard === board ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>
                         {String(index + 1).padStart(2, '0')}
                       </span>
                       <span className="font-bold text-foreground">{board}</span>
@@ -265,15 +265,15 @@ export default function Onboarding() {
               animate="center"
               exit="exit"
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-              className="flex-1 flex flex-col"
+              className="onboarding-step flex min-h-0 flex-1 flex-col"
             >
-              <p className="eyebrow mb-3"><Sparkles size={12} /> Build your curriculum</p>
-              <h1 className="font-display text-[2rem] font-extrabold leading-tight text-foreground">
+              <p className="onboarding-kicker eyebrow mb-3"><Sparkles size={12} /> Build your curriculum</p>
+              <h1 className="onboarding-title font-display text-[2rem] font-extrabold leading-tight text-foreground">
                 Which subjects are you studying?
               </h1>
-              <p className="mb-6 mt-2 text-sm text-muted-foreground">Choose at least 3. You can refine chapters later.</p>
+              <p className="onboarding-copy mb-6 mt-2 text-sm text-muted-foreground">Choose at least 3. You can refine chapters later.</p>
 
-              <div className="scrollbar-none flex-1 space-y-3 overflow-y-auto pb-28">
+              <div className="onboarding-list scrollbar-none min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-28">
                 {SUBJECTS.map((subject) => {
                   const isSelected = selectedSubjects.includes(subject);
                   return (
@@ -283,14 +283,14 @@ export default function Onboarding() {
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                       data-testid={`subject-select-${subject.replace(/\s+/g, '-').toLowerCase()}`}
-                      className={`flex w-full items-center justify-between gap-3 rounded-[1.35rem] border p-4 text-left transition-all ${
+                      className={`onboarding-option flex w-full items-center justify-between gap-3 rounded-[1.35rem] border p-4 text-left transition-all ${
                         isSelected
                           ? 'border-primary/45 bg-primary/[0.075] shadow-[0_12px_28px_rgba(92,69,220,0.1)]'
                           : 'border-white/80 bg-card/85 shadow-[0_7px_24px_rgba(45,40,80,0.06)] hover:border-primary/20 hover:bg-white'
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isSelected ? 'bg-primary/12' : 'bg-secondary'}`}><SubjectIcon subject={subject} className="h-6 w-6 text-xl" /></span>
+                        <span className={`onboarding-option-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isSelected ? 'bg-primary/12' : 'bg-secondary'}`}><SubjectIcon subject={subject} className="h-6 w-6 text-xl" /></span>
                         <span className={`truncate font-bold ${subjectNameDirectionClass(subject)}`}>
                           {subjectDisplayName(subject)}
                         </span>
@@ -344,13 +344,13 @@ export default function Onboarding() {
               animate="center"
               exit="exit"
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-              className="flex-1 flex flex-col"
+              className="onboarding-step flex min-h-0 flex-1 flex-col"
             >
-              <p className="eyebrow mb-3"><Sparkles size={12} /> Set your finish line</p>
-              <h1 className="font-display text-[2rem] font-extrabold leading-tight text-foreground">
+              <p className="onboarding-kicker eyebrow mb-3"><Sparkles size={12} /> Set your finish line</p>
+              <h1 className="onboarding-title font-display text-[2rem] font-extrabold leading-tight text-foreground">
                 When is your exam?
               </h1>
-              <p className="mb-8 mt-2 text-sm leading-relaxed text-muted-foreground">Your date helps us pace revision without cramming.</p>
+              <p className="onboarding-copy mb-8 mt-2 text-sm leading-relaxed text-muted-foreground">Your date helps us pace revision without cramming.</p>
 
               <div className="flex-1">
                 <label className="mb-3 block text-sm font-semibold text-muted-foreground">
@@ -401,7 +401,7 @@ export default function Onboarding() {
       </div>
 
       {/* Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 mx-auto max-w-[560px] bg-gradient-to-t from-background via-background/95 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-8 backdrop-blur-[2px] sm:px-7">
+      <div className="onboarding-actions fixed bottom-0 left-0 right-0 z-20 mx-auto max-w-[560px] bg-gradient-to-t from-background via-background/95 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-8 backdrop-blur-[2px] sm:px-7">
         <AnimatePresence>
           {error && (
             <motion.p

@@ -15,8 +15,8 @@ export function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-[560px] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-      <div className="glass-surface flex h-[70px] items-center justify-around rounded-[1.65rem] px-1.5 shadow-[0_18px_45px_rgba(38,32,78,0.18)]">
+    <div className="bottom-nav-wrap fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-[560px] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div className="bottom-nav-surface glass-surface flex h-[70px] items-center justify-around rounded-[1.65rem] px-1.5 shadow-[0_18px_45px_rgba(38,32,78,0.18)]">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = location === tab.path;
@@ -52,7 +52,7 @@ export function BottomNav() {
                   />
                 </motion.div>
                 <span
-                  className={`text-[9px] font-bold tracking-[-0.01em] transition-colors duration-200 ${
+                  className={`bottom-nav-label text-[9px] font-bold tracking-[-0.01em] transition-colors duration-200 ${
                     isActive ? 'text-primary' : 'text-muted-foreground/90'
                   }`}
                 >

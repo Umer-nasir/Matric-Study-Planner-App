@@ -6,7 +6,7 @@
   "scripts": {
     "preinstall": "node ./scripts/preinstall.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "test": "node --test tests/dateOnly.test.ts tests/subjectLanguage.test.ts tests/customFetch.test.ts tests/onboardingProfile.test.ts tests/userStorage.test.ts",
+    "test": "node --test tests/dateOnly.test.ts tests/subjectLanguage.test.ts tests/customFetch.test.ts tests/onboardingProfile.test.ts tests/userStorage.test.ts tests/tutorSubjectDetection.test.ts",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck"
   },
