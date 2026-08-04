@@ -5,6 +5,7 @@ import { ModeIndicator } from '@/components/ModeIndicator';
 import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
+import { buildTutorSubjectOptions } from '@/lib/tutorSubjectOptions';
 import {
   subjectDisplayName,
   subjectStarterQuestions,
@@ -243,7 +244,7 @@ export default function AiTutor() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const subjectOptions = useMemo(
-    () => ['General', ...(profile?.subjects ?? [])],
+    () => buildTutorSubjectOptions(profile?.subjects),
     [profile?.subjects],
   );
   const starterQuestions = useMemo(
