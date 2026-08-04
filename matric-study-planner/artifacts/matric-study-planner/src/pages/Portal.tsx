@@ -8,11 +8,11 @@ import {
   Loader2,
   Sparkles,
   Target,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { useAuthContext } from '@/context/AuthContext';
-import { useAppContext } from '@/context/AppContext';
 
 const AUTH_REDIRECT_ERROR_KEY = 'matric_auth_redirect_error';
 const AUTH_REDIRECT_PENDING_KEY = 'matric_auth_redirect_pending';
@@ -21,7 +21,6 @@ const GOOGLE_OPEN_TIMEOUT_MS = 15000;
 
 export default function Portal() {
   const { signInWithGoogle, continueAsGuest } = useAuthContext();
-  const { loadDemoData } = useAppContext();
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -66,29 +65,31 @@ export default function Portal() {
   }
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto overflow-hidden bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--accent))_48%,hsl(var(--background))_100%)] shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="flex min-h-[100dvh] flex-col px-5 pb-7 pt-8">
+    <div className="app-shell overflow-hidden">
+      <div className="ambient-orb -right-20 top-20 h-52 w-52 bg-primary/10" />
+      <div className="ambient-orb -left-28 top-[44%] h-60 w-60 bg-emerald-300/10" />
+      <div className="flex min-h-[100dvh] flex-col px-5 pb-7 pt-7 sm:px-7">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
           className="flex flex-1 flex-col"
         >
-          <header className="flex items-center justify-between">
+          <header className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[1.15rem] bg-[linear-gradient(145deg,#8275ff,#5840db)] text-primary-foreground shadow-[0_12px_28px_rgba(91,66,220,0.3),inset_0_1px_0_rgba(255,255,255,0.35)]">
                 <BookOpenCheck size={25} />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-primary">
+                <p className="eyebrow">
                   Matric
                 </p>
-                <h1 className="text-lg font-black leading-tight text-foreground">
+                <h1 className="font-display text-lg font-extrabold leading-tight text-foreground">
                   Study Planner
                 </h1>
               </div>
             </div>
-            <div className="rounded-2xl border border-primary/15 bg-card/80 px-3 py-2 text-right shadow-sm">
+            <div className="glass-surface rounded-2xl px-3.5 py-2 text-right shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 Exam Focus
               </p>
@@ -96,25 +97,25 @@ export default function Portal() {
             </div>
           </header>
 
-          <main className="flex flex-1 flex-col justify-center py-7">
+          <main className="relative z-10 flex flex-1 flex-col justify-center py-7">
             <section className="mb-6">
               <motion.div
                 initial={{ opacity: 0, y: 14, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.08, type: 'spring', stiffness: 280, damping: 26 }}
-                className="overflow-hidden rounded-[2rem] border border-card-border bg-card shadow-xl shadow-primary/10"
+                className="premium-hero overflow-hidden rounded-[2rem] border border-white/15"
               >
-                <div className="border-b border-border bg-background/80 px-5 py-4">
+                <div className="border-b border-white/10 px-5 py-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-primary">
-                        Today
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/60">
+                        Your study command center
                       </p>
-                      <h2 className="mt-1 text-2xl font-black tracking-tight text-foreground">
+                      <h2 className="font-display mt-1 text-2xl font-extrabold text-white">
                         3 focused blocks
                       </h2>
                     </div>
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-emerald-200 backdrop-blur-sm">
                       <Sparkles size={21} />
                     </div>
                   </div>
@@ -145,16 +146,16 @@ export default function Portal() {
                     return (
                       <div
                         key={item.title}
-                        className="flex items-center gap-3 rounded-2xl border border-border bg-background px-3 py-3"
+                        className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.075] px-3 py-3 backdrop-blur-sm"
                       >
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${item.tone}`}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white">
                           <Icon size={18} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-black text-foreground">{item.title}</p>
-                          <p className="truncate text-xs font-medium text-muted-foreground">{item.meta}</p>
+                          <p className="truncate text-sm font-extrabold text-white">{item.title}</p>
+                          <p className="truncate text-xs font-medium text-white/55">{item.meta}</p>
                         </div>
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
                       </div>
                     );
                   })}
@@ -163,8 +164,11 @@ export default function Portal() {
             </section>
 
             <section className="mb-5 text-center">
-              <h2 className="text-4xl font-black tracking-tight text-foreground">
-                Study with a plan that keeps up.
+              <div className="eyebrow mb-3 justify-center">
+                <Zap size={12} fill="currentColor" /> Built for board exams
+              </div>
+              <h2 className="font-display text-[2.4rem] font-extrabold leading-[1.04] text-foreground">
+                Study smarter.<br />Arrive ready.
               </h2>
               <p className="mx-auto mt-3 max-w-[330px] text-sm leading-relaxed text-muted-foreground">
                 Build an exam-ready routine with chapter plans, AI help, practice, and progress in one calm workspace.
@@ -172,13 +176,13 @@ export default function Portal() {
             </section>
 
             <section
-              className="rounded-[1.75rem] border border-card-border bg-card/95 p-4 shadow-xl shadow-black/5"
+              className="glass-surface rounded-[1.75rem] p-4"
               aria-label="Sign in options"
             >
               <div className="space-y-3">
                 <Button
                   fullWidth
-                  className="h-12"
+                  className="h-[52px] text-[15px]"
                   onClick={() => {
                     setError(null);
                     continueAsGuest();
@@ -192,26 +196,13 @@ export default function Portal() {
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isSigningIn}
-                  className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-2xl border border-[#dadce0] bg-white px-4 text-sm font-bold text-[#3c4043] shadow-sm transition-colors hover:bg-[#f8fafd] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60"
+                  className="flex min-h-[52px] w-full items-center justify-center gap-3 rounded-2xl border border-[#dedee8] bg-white px-4 text-sm font-bold text-[#3c4043] shadow-[0_5px_16px_rgba(36,32,64,0.06)] transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60"
                   data-testid="button-google-sign-in"
                 >
                   {isSigningIn ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
                   {isSigningIn ? 'Opening Google...' : 'Continue with Google'}
                 </button>
 
-                <Button
-                  variant="outline"
-                  fullWidth
-                  className="h-12"
-                  onClick={() => {
-                    setError(null);
-                    continueAsGuest();
-                    loadDemoData();
-                  }}
-                  data-testid="button-load-demo-data"
-                >
-                  Load Demo Data
-                </Button>
               </div>
 
               {error && (

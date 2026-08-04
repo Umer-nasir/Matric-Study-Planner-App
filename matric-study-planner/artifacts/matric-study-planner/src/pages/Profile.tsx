@@ -27,12 +27,14 @@ import { SUBJECTS } from '@/data/syllabus';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import {
+  addDaysDateOnly,
   dateInputValueToExamDate,
   dateOnlyToLocalDate,
   daysUntilDateOnly,
   examDateToLocalDate,
   toDateInputValue,
 } from '@/lib/dateOnly';
+import { MAX_EXAM_DATE_DAYS, isValidExamDate } from '@/lib/onboardingProfile';
 import {
   subjectDisplayName,
   subjectNameDirectionClass,
@@ -123,6 +125,10 @@ export default function Profile() {
       setProfileMessage('Exam date must be in the future.');
       return;
     }
+    if (!isValidExamDate(draftExamDate)) {
+      setProfileMessage('Please select a valid exam date within the next 3 years.');
+      return;
+    }
 
     setProfile({
       ...profile,
@@ -185,17 +191,18 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="px-5 pt-8 pb-32 space-y-5">
+    <div className="app-shell">
+      <div className="space-y-5 px-5 pb-32 pt-8 sm:px-7">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Profile</h1>
+            <p className="eyebrow mb-2">Your study identity</p>
+            <h1 className="font-display text-[1.8rem] font-extrabold text-foreground">Profile</h1>
             <p className="text-sm text-muted-foreground mt-1">Student settings and progress.</p>
           </div>
           <ModeIndicator />
         </div>
 
-        <Card className="p-5" data-testid="card-profile-summary">
+        <Card className="overflow-hidden p-5" data-testid="card-profile-summary">
           <div className="flex items-start gap-3">
             {currentUser?.photoURL ? (
               <img
@@ -305,6 +312,8 @@ export default function Profile() {
             <input
               type="date"
               value={draftExamDate}
+              min={addDaysDateOnly(1)}
+              max={addDaysDateOnly(MAX_EXAM_DATE_DAYS)}
               onChange={(event) => {
                 setDraftExamDate(event.target.value);
                 setProfileMessage(null);

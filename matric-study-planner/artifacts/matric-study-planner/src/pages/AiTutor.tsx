@@ -491,11 +491,12 @@ export default function AiTutor() {
   }
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="sticky top-0 z-20 bg-card border-b border-border px-5 pt-8 pb-3">
+    <div className="app-shell flex flex-col">
+      <div className="sticky top-0 z-20 border-b border-white/70 bg-card/80 px-5 pb-3 pt-7 backdrop-blur-xl sm:px-7">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">AI Tutor</h1>
+            <p className="eyebrow mb-2">Always-on study support</p>
+            <h1 className="font-display text-[1.8rem] font-extrabold text-foreground">AI Tutor</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {isFocus ? 'Quick answers mode' : 'Ask for clear, exam-focused help.'}
             </p>
@@ -532,7 +533,7 @@ export default function AiTutor() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-4 pb-44">
+      <div className="flex-1 overflow-y-auto px-5 pb-44 pt-4 sm:px-7">
         {isFocus && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
             <Zap size={14} />
@@ -546,14 +547,14 @@ export default function AiTutor() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-              className={`mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${
-                isFocus ? 'bg-red-50' : 'bg-primary/10'
+              className={`mb-5 flex h-16 w-16 items-center justify-center rounded-[1.4rem] shadow-lg ${
+                isFocus ? 'bg-red-50 shadow-red-100' : 'bg-[linear-gradient(145deg,#7d6fff,#5942dd)] text-white shadow-primary/25'
               }`}
             >
               {isFocus ? (
                 <Zap className="text-red-600" size={28} />
               ) : (
-                <Sparkles className="text-primary" size={28} />
+                <Sparkles className="text-white" size={28} />
               )}
             </motion.div>
 
@@ -596,7 +597,7 @@ export default function AiTutor() {
 
       <form
         onSubmit={handleSubmit}
-        className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] left-0 right-0 z-40 mx-auto max-w-[480px] border-t border-border bg-card p-4"
+        className="fixed bottom-[calc(90px+env(safe-area-inset-bottom))] left-0 right-0 z-40 mx-auto max-w-[560px] border-t border-white/70 bg-card/85 p-4 backdrop-blur-xl"
       >
         <input
           ref={fileInputRef}

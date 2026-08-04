@@ -10,9 +10,9 @@ interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
 export function Card({ children, className = '', noTap = false, ...props }: CardProps) {
   return (
     <motion.div
-      whileTap={noTap ? {} : { y: -2, boxShadow: '0 8px 24px rgba(79, 70, 229, 0.12)' }}
+      whileTap={noTap ? {} : { y: -2, boxShadow: '0 18px 38px rgba(58, 48, 116, 0.13)' }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className={`bg-card rounded-2xl p-4 shadow-sm border border-card-border ${className}`}
+      className={`rounded-[1.4rem] border border-white/75 bg-card/90 p-4 shadow-[0_10px_32px_rgba(45,40,80,0.07),0_1px_2px_rgba(45,40,80,0.04)] backdrop-blur-sm ${className}`}
       {...props}
     >
       {children}

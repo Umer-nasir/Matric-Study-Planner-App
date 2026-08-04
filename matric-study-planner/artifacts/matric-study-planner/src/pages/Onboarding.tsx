@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays } from 'lucide-react';
+import { BookOpenCheck, CalendarDays, Check, Sparkles } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { SubjectIcon } from '@/components/SubjectIcon';
 import { BOARDS, SUBJECTS } from '@/data/syllabus';
@@ -17,12 +17,19 @@ import {
   daysUntilDateOnly,
   examDateToLocalDate,
 } from '@/lib/dateOnly';
+import {
+  MAX_EXAM_DATE_DAYS,
+  createCompletedProfile,
+  isValidExamDate,
+} from '@/lib/onboardingProfile';
 
 const stepVariants = {
   enter: { opacity: 0, x: 32 },
   center: { opacity: 1, x: 0 },
   exit: { opacity: 0, x: -32 },
 };
+
+const stepLabels = ['Board', 'Subjects', 'Exam date'];
 
 export default function Onboarding() {
   const [step, setStep] = useState(1);
@@ -67,13 +74,16 @@ export default function Onboarding() {
         setError('Exam date must be in the future.');
         return;
       }
+      if (!isValidExamDate(examDate)) {
+        setError('Please select a valid exam date within the next 3 years.');
+        return;
+      }
 
-      setProfile({
+      setProfile(createCompletedProfile({
         board: selectedBoard,
         subjects: selectedSubjects,
         examDate: dateInputValueToExamDate(examDate),
-        onboardingComplete: true,
-      });
+      }));
       setLocation('/dashboard');
       return;
     }
@@ -103,6 +113,7 @@ export default function Onboarding() {
       ? daysUntilDateOnly(examDate)
       : null;
   const minExamDate = addDaysDateOnly(1);
+  const maxExamDate = addDaysDateOnly(MAX_EXAM_DATE_DAYS);
   const formattedExamDate = examDate
     ? examDateToLocalDate(examDate).toLocaleDateString(undefined, {
         day: 'numeric',
@@ -112,26 +123,51 @@ export default function Onboarding() {
     : '';
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background flex flex-col relative shadow-[0_0_40px_rgba(0,0,0,0.05)]">
+    <div className="app-shell flex flex-col">
+      <div className="ambient-orb -right-20 -top-20 h-64 w-64 bg-primary/10" />
+      <div className="ambient-orb -left-24 top-[46%] h-52 w-52 bg-emerald-300/10" />
 
-      {/* Progress Dots */}
-      <div className="pt-12 pb-6 px-6 flex justify-center space-x-2">
-        {[1, 2, 3].map((i) => (
-          <motion.div
-            key={i}
-            animate={{
-              width: i === step ? 32 : 8,
-              backgroundColor: i <= step ? 'hsl(var(--primary))' : 'hsl(var(--secondary))',
-              opacity: i < step ? 0.45 : 1,
-            }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="h-2 rounded-full"
-            style={{ width: i === step ? 32 : 8 }}
-          />
-        ))}
+      <div className="relative z-10 px-5 pb-6 pt-6 sm:px-7">
+        <div className="mb-7 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/25">
+              <BookOpenCheck size={20} />
+            </div>
+            <div>
+              <p className="font-display text-sm font-extrabold leading-none">Study Planner</p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Personal setup</p>
+            </div>
+          </div>
+          <div className="rounded-full border border-primary/10 bg-primary/8 px-3 py-1.5 text-[11px] font-extrabold text-primary">
+            {step} of 3
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2" aria-label={`Step ${step} of 3: ${stepLabels[step - 1]}`}>
+          {stepLabels.map((label, index) => {
+            const itemStep = index + 1;
+            const isActive = itemStep === step;
+            const isComplete = itemStep < step;
+            return (
+              <div key={label} className="min-w-0">
+                <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                  <motion.div
+                    initial={false}
+                    animate={{ width: itemStep <= step ? '100%' : '0%' }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                    className="h-full rounded-full bg-[linear-gradient(90deg,#7667ff,#9c8fff)]"
+                  />
+                </div>
+                <p className={`truncate text-[10px] font-bold ${isActive ? 'text-primary' : isComplete ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {isComplete ? 'Done' : label}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="flex-1 px-6 relative overflow-hidden flex flex-col">
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden px-5 sm:px-7">
         <AnimatePresence mode="wait" custom={direction}>
           {step === 1 && (
             <motion.div
@@ -144,12 +180,14 @@ export default function Onboarding() {
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
               className="flex-1 flex flex-col"
             >
-              <h1 className="text-3xl font-bold tracking-tight text-foreground mb-8">
+              <p className="eyebrow mb-3"><Sparkles size={12} /> Shape your study plan</p>
+              <h1 className="font-display mb-3 text-[2rem] font-extrabold leading-tight text-foreground">
                 Which board are you in?
               </h1>
+              <p className="mb-7 text-sm leading-relaxed text-muted-foreground">We’ll tailor every chapter and practice set to your syllabus.</p>
 
-              <div className="space-y-3 flex-1 overflow-y-auto pb-24">
-                {BOARDS.map((board) => (
+              <div className="scrollbar-none flex-1 space-y-3 overflow-y-auto pb-28">
+                {BOARDS.map((board, index) => (
                   <motion.button
                     key={board}
                     onClick={() => {
@@ -160,13 +198,18 @@ export default function Onboarding() {
                     whileTap={{ scale: 0.97 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                     data-testid={`board-select-${board.replace(/\s+/g, '-').toLowerCase()}`}
-                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center justify-between ${
+                    className={`group flex w-full items-center justify-between rounded-[1.35rem] border p-4 text-left transition-all ${
                       selectedBoard === board
-                        ? 'border-primary bg-primary/5 shadow-sm'
-                        : 'border-transparent bg-card shadow-sm hover:border-primary/20'
+                        ? 'border-primary/45 bg-primary/[0.075] shadow-[0_12px_28px_rgba(92,69,220,0.1)]'
+                        : 'border-white/80 bg-card/85 shadow-[0_7px_24px_rgba(45,40,80,0.06)] hover:border-primary/20 hover:bg-white'
                     }`}
                   >
-                    <span className="font-medium text-lg">{board}</span>
+                    <span className="flex items-center gap-3.5">
+                      <span className={`flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-extrabold ${selectedBoard === board ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className="font-bold text-foreground">{board}</span>
+                    </span>
                     <motion.div
                       animate={
                         selectedBoard === board
@@ -174,7 +217,7 @@ export default function Onboarding() {
                           : { scale: 1 }
                       }
                       transition={{ duration: 0.25 }}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                      className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${
                         selectedBoard === board
                           ? 'border-primary'
                           : 'border-muted-foreground/30'
@@ -187,14 +230,14 @@ export default function Onboarding() {
                             animate={{ scale: 1 }}
                             exit={{ scale: 0 }}
                             transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                            className="w-3 h-3 rounded-full bg-primary"
-                          />
+                            className="flex h-full w-full items-center justify-center rounded-full bg-primary text-white"
+                          ><Check size={14} strokeWidth={3} /></motion.div>
                         )}
                       </AnimatePresence>
                     </motion.div>
                   </motion.button>
                 ))}
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-900">
                   Choose carefully - this cannot be changed later because it determines your syllabus.
                 </div>
                 <AnimatePresence>
@@ -224,12 +267,13 @@ export default function Onboarding() {
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
               className="flex-1 flex flex-col"
             >
-              <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
+              <p className="eyebrow mb-3"><Sparkles size={12} /> Build your curriculum</p>
+              <h1 className="font-display text-[2rem] font-extrabold leading-tight text-foreground">
                 Which subjects are you studying?
               </h1>
-              <p className="text-muted-foreground mb-6">Select at least 3 subjects.</p>
+              <p className="mb-6 mt-2 text-sm text-muted-foreground">Choose at least 3. You can refine chapters later.</p>
 
-              <div className="space-y-3 flex-1 overflow-y-auto pb-24">
+              <div className="scrollbar-none flex-1 space-y-3 overflow-y-auto pb-28">
                 {SUBJECTS.map((subject) => {
                   const isSelected = selectedSubjects.includes(subject);
                   return (
@@ -239,15 +283,15 @@ export default function Onboarding() {
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                       data-testid={`subject-select-${subject.replace(/\s+/g, '-').toLowerCase()}`}
-                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 ${
+                      className={`flex w-full items-center justify-between gap-3 rounded-[1.35rem] border p-4 text-left transition-all ${
                         isSelected
-                          ? 'border-primary bg-primary/5 shadow-sm'
-                          : 'border-transparent bg-card shadow-sm hover:border-primary/20'
+                          ? 'border-primary/45 bg-primary/[0.075] shadow-[0_12px_28px_rgba(92,69,220,0.1)]'
+                          : 'border-white/80 bg-card/85 shadow-[0_7px_24px_rgba(45,40,80,0.06)] hover:border-primary/20 hover:bg-white'
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-3">
-                        <SubjectIcon subject={subject} className="h-6 w-6 shrink-0 text-xl" />
-                        <span className={`truncate font-medium text-lg ${subjectNameDirectionClass(subject)}`}>
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isSelected ? 'bg-primary/12' : 'bg-secondary'}`}><SubjectIcon subject={subject} className="h-6 w-6 text-xl" /></span>
+                        <span className={`truncate font-bold ${subjectNameDirectionClass(subject)}`}>
                           {subjectDisplayName(subject)}
                         </span>
                       </span>
@@ -302,9 +346,11 @@ export default function Onboarding() {
               transition={{ type: 'spring', stiffness: 340, damping: 30 }}
               className="flex-1 flex flex-col"
             >
-              <h1 className="text-3xl font-bold tracking-tight text-foreground mb-8">
+              <p className="eyebrow mb-3"><Sparkles size={12} /> Set your finish line</p>
+              <h1 className="font-display text-[2rem] font-extrabold leading-tight text-foreground">
                 When is your exam?
               </h1>
+              <p className="mb-8 mt-2 text-sm leading-relaxed text-muted-foreground">Your date helps us pace revision without cramming.</p>
 
               <div className="flex-1">
                 <label className="mb-3 block text-sm font-semibold text-muted-foreground">
@@ -315,10 +361,11 @@ export default function Onboarding() {
                     type="date"
                     value={examDate}
                     min={minExamDate}
+                    max={maxExamDate}
                     onChange={(e) => setExamDate(e.target.value)}
                     data-testid="input-exam-date"
                     aria-label="Exam date"
-                    className="h-[74px] w-full cursor-pointer rounded-2xl border border-input bg-card px-5 text-transparent shadow-sm caret-transparent outline-none transition-colors focus:ring-2 focus:ring-primary"
+                  className="h-[82px] w-full cursor-pointer rounded-[1.4rem] border border-white bg-card/90 px-5 text-transparent shadow-[0_12px_34px_rgba(45,40,80,0.08)] caret-transparent outline-none transition-colors focus:ring-2 focus:ring-primary"
                   />
                   <div className="pointer-events-none absolute left-5 top-1/2 min-w-0 -translate-y-1/2 pr-12">
                     <p className={`text-lg font-bold ${examDate ? 'text-foreground' : 'text-muted-foreground'}`}>
@@ -338,7 +385,7 @@ export default function Onboarding() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -6, scale: 0.95 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                      className="p-4 bg-accent/30 text-accent-foreground rounded-2xl border border-accent text-center"
+                      className="rounded-[1.35rem] border border-primary/15 bg-primary/[0.07] p-5 text-center text-accent-foreground"
                     >
                       <p className="font-medium">
                         That is{' '}
@@ -354,7 +401,7 @@ export default function Onboarding() {
       </div>
 
       {/* Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 bg-gradient-to-t from-background via-background to-transparent max-w-[480px] mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-20 mx-auto max-w-[560px] bg-gradient-to-t from-background via-background/95 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-8 backdrop-blur-[2px] sm:px-7">
         <AnimatePresence>
           {error && (
             <motion.p

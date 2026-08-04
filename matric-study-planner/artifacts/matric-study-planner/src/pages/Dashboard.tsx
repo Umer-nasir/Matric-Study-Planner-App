@@ -782,11 +782,11 @@ export default function Dashboard() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
+    <div className="app-shell">
       <ModeBanner />
 
       <motion.div
-        className="px-5 pt-8 pb-28 space-y-5"
+        className="page-content space-y-5"
         variants={ctr}
         initial="hidden"
         animate="visible"
@@ -794,8 +794,9 @@ export default function Dashboard() {
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <motion.div variants={crd}>
-          <div className="flex items-center justify-between mb-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">{greeting}, Scholar!</h1>
+          <p className="eyebrow mb-2"><Sparkles size={12} /> Your study command center</p>
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <h1 className="font-display text-[1.8rem] font-extrabold leading-tight text-foreground">{greeting}, Scholar!</h1>
             <div className="flex items-center gap-2">
               {(isFun || isBalanced) && <StreakCounter compact />}
               <ModeIndicator />
@@ -809,7 +810,7 @@ export default function Dashboard() {
               "{quote}"
             </motion.p>
           )}
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="mt-2 text-xs font-medium text-muted-foreground">
             {doneChapters} of {totalChapters} chapters completed · {selectedScheduleChapterCount} selected for your next plan
           </p>
         </motion.div>
@@ -860,8 +861,8 @@ export default function Dashboard() {
           <>
             {/* ── Countdown card ──────────────────────────────────────────── */}
             <motion.div variants={crd}>
-              <div className={`rounded-3xl p-6 text-white shadow-lg relative overflow-hidden ${
-                isFocus ? 'bg-gray-900' : 'bg-gradient-to-br from-primary to-[#3730A3] shadow-primary/25'
+              <div className={`relative overflow-hidden rounded-[2rem] p-6 text-white ${
+                isFocus ? 'bg-gray-900 shadow-[0_24px_52px_rgba(17,24,39,0.26)]' : 'premium-hero'
               }`}>
                 <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
                 <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white/10 blur-xl" />
@@ -881,7 +882,7 @@ export default function Dashboard() {
                           <motion.div
                             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 22, delay: 0.15 }}
-                            className="text-6xl font-black tracking-tighter mb-1 leading-none"
+                            className="font-display mb-1 text-6xl font-extrabold leading-none tracking-[-0.06em]"
                           >
                             {daysLeft}
                           </motion.div>

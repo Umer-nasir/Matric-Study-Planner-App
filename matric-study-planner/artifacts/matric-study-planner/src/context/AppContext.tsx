@@ -10,6 +10,20 @@ import React, {
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import type { AiSchedule } from '@/types/schedule';
 import { addDaysDateOnly, daysUntilDateOnly, todayDateOnly } from '@/lib/dateOnly';
+import { useAuthContext } from '@/context/AuthContext';
+import {
+  hasCompletedOnboarding,
+  normalizeCompletedProfile,
+  type Profile,
+} from '@/lib/onboardingProfile';
+import {
+  USER_DATA_STORAGE_KEYS,
+  getUserDataOwner,
+  userDataStorageKey,
+  type UserDataStorageKey,
+} from '@/lib/userStorage';
+
+export type { Profile } from '@/lib/onboardingProfile';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,13 +36,6 @@ export interface ChapterState {
 
 /** { "Physics": { "Vectors": { done: true, selectedForSchedule: false }, ... }, ... } */
 export type ChapterCompletion = Record<string, Record<string, ChapterState>>;
-
-export interface Profile {
-  board: string;
-  subjects: string[];
-  examDate: string;
-  onboardingComplete: boolean;
-}
 
 export interface StudyEvent {
   id: string;
@@ -100,7 +107,6 @@ export interface AppContextType {
   setProfile: (p: Profile) => void;
   clearProfile: () => void;
   resetProgress: () => void;
-  loadDemoData: () => void;
 
   // Mode
   currentMode: StudyMode;
@@ -254,48 +260,15 @@ function normalizeCompletionForSubjects(subjects: string[], storedCompletion: un
   return filled;
 }
 
-function normalizeProfile(profile: Profile): Profile {
-  return {
-    board: profile.board,
-    subjects: profile.subjects,
-    examDate: profile.examDate,
-    onboardingComplete: profile.onboardingComplete,
-  };
-}
-
-function buildDemoSchedule(): AiSchedule {
-  const today = todayDateOnly();
-  return {
-    generatedAt: new Date().toISOString(),
-    week: [
-      {
-        day: 'Today',
-        date: today,
-        blocks: [
-          { subject: 'Physics', chapter: 'Measurements', durationMinutes: 35 },
-          { subject: 'Chemistry', chapter: 'Structure of Atoms', durationMinutes: 30 },
-          { subject: 'Mathematics', chapter: 'Matrices and Determinants', durationMinutes: 40 },
-        ],
-      },
-      {
-        day: 'Tomorrow',
-        date: addDaysDateOnly(1),
-        blocks: [
-          { subject: 'Physics', chapter: 'Vectors and Equilibrium', durationMinutes: 35 },
-          { subject: 'Mathematics', chapter: 'Real and Complex Numbers', durationMinutes: 40 },
-        ],
-      },
-    ],
-  };
-}
-
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 const DEFAULT_REMINDER_SETTINGS: ReminderSettings = { enabled: false, time: '18:00' };
 
 export function AppContextProvider({ children }: { children: ReactNode }) {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { currentUser, isGuest } = useAuthContext();
+  const storageOwner = getUserDataOwner(currentUser?.uid, isGuest);
+  const [loadedStorageOwner, setLoadedStorageOwner] = useState<string | null | undefined>(undefined);
   const [profile, setProfileState] = useState<Profile | null>(null);
   const [streak, setStreak] = useState(0);
   const [lastStudiedDate, setLastStudiedDate] = useState<string | null>(null);
@@ -309,69 +282,132 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   const [practiceHistory, setPracticeHistory] = useState<PracticeAttempt[]>([]);
   const [reminderSettings, setReminderSettingsState] = useState<ReminderSettings>(DEFAULT_REMINDER_SETTINGS);
 
-  // Load all persisted data on mount
+  const saveUserJSON = useCallback((key: UserDataStorageKey, value: unknown) => {
+    if (!storageOwner) return;
+    saveJSON(userDataStorageKey(storageOwner, key), value);
+  }, [storageOwner]);
+
+  const removeUserItem = useCallback((key: UserDataStorageKey) => {
+    if (!storageOwner) return;
+    try {
+      localStorage.removeItem(userDataStorageKey(storageOwner, key));
+    } catch {
+      // State remains authoritative if browser storage is unavailable.
+    }
+  }, [storageOwner]);
+
+  const clearUserStorage = useCallback(() => {
+    if (!storageOwner) return;
+    for (const key of USER_DATA_STORAGE_KEYS) {
+      try {
+        localStorage.removeItem(userDataStorageKey(storageOwner, key));
+      } catch {
+        // Continue clearing the in-memory state below.
+      }
+    }
+  }, [storageOwner]);
+
+  // Rehydrate whenever the active identity changes. Unscoped legacy keys are deliberately
+  // ignored because their owner cannot be determined safely.
   useEffect(() => {
-    const storedProfile = loadJSON<Profile | null>('matric_profile', null);
-    if (storedProfile) {
-      const normalized = normalizeProfile(storedProfile);
-      setProfileState(normalized);
-      saveJSON('matric_profile', normalized);
+    setProfileState(null);
+    setStreak(0);
+    setLastStudiedDate(null);
+    setEarnedBadges([]);
+    setPendingBadges([]);
+    setChapterCompletion({});
+    setScheduleSelectionConfigured(false);
+    setEvents([]);
+    setAiScheduleState(null);
+    setTutorChatHistoryState([]);
+    setPracticeHistory([]);
+    setReminderSettingsState(DEFAULT_REMINDER_SETTINGS);
+
+    if (!storageOwner) {
+      setLoadedStorageOwner(null);
+      return;
     }
 
+    const key = (baseKey: UserDataStorageKey) => userDataStorageKey(storageOwner, baseKey);
+    const storedProfile = normalizeCompletedProfile(loadJSON<unknown>(key('matric_profile'), null));
+
+    if (!storedProfile || !hasCompletedOnboarding(storedProfile)) {
+      setLoadedStorageOwner(storageOwner);
+      return;
+    }
+
+    setProfileState(storedProfile);
+    saveJSON(key('matric_profile'), storedProfile);
+
     const streakData = loadJSON<{ count: number; lastDate: string | null }>(
-      'matric_streak',
+      key('matric_streak'),
       { count: 0, lastDate: null },
     );
     setStreak(streakData.count);
     setLastStudiedDate(streakData.lastDate);
 
-    const badges = loadJSON<string[]>('matric_badges', []);
+    const badges = loadJSON<string[]>(key('matric_badges'), []);
     setEarnedBadges(badges);
 
-    const evts = loadJSON<StudyEvent[]>('matric_events', []);
+    const evts = loadJSON<StudyEvent[]>(key('matric_events'), []);
     setEvents(evts);
 
-    const storedCompletion = loadJSON<unknown>('matric_chapters', {});
-    if (storedProfile?.subjects) {
-      const filled = normalizeCompletionForSubjects(storedProfile.subjects, storedCompletion);
-      setChapterCompletion(filled);
-      saveJSON('matric_chapters', filled);
-    }
+    const storedCompletion = loadJSON<unknown>(key('matric_chapters'), {});
+    const filled = normalizeCompletionForSubjects(storedProfile.subjects, storedCompletion);
+    setChapterCompletion(filled);
+    saveJSON(key('matric_chapters'), filled);
 
-    setScheduleSelectionConfigured(loadJSON<boolean>('matric_schedule_selection_configured', false));
+    setScheduleSelectionConfigured(loadJSON<boolean>(key('matric_schedule_selection_configured'), false));
 
-    const storedSchedule = loadJSON<AiSchedule | null>('matric_ai_schedule', null);
+    const storedSchedule = loadJSON<AiSchedule | null>(key('matric_ai_schedule'), null);
     if (storedSchedule) setAiScheduleState(storedSchedule);
 
-    const storedTutorHistory = loadJSON<TutorChatMessage[]>('tutorChatHistory', []);
+    const storedTutorHistory = loadJSON<TutorChatMessage[]>(key('tutorChatHistory'), []);
     setTutorChatHistoryState(storedTutorHistory);
 
-    const storedPracticeHistory = loadJSON<PracticeAttempt[]>('matric_practice_history', []);
+    const storedPracticeHistory = loadJSON<PracticeAttempt[]>(key('matric_practice_history'), []);
     setPracticeHistory(storedPracticeHistory);
 
-    const storedReminders = loadJSON<ReminderSettings>('matric_reminder_settings', DEFAULT_REMINDER_SETTINGS);
+    const storedReminders = loadJSON<ReminderSettings>(key('matric_reminder_settings'), DEFAULT_REMINDER_SETTINGS);
     setReminderSettingsState({
       enabled: Boolean(storedReminders.enabled),
       time: storedReminders.time || DEFAULT_REMINDER_SETTINGS.time,
       lastShownDate: storedReminders.lastShownDate,
     });
 
-    setIsLoaded(true);
-  }, []);
+    setLoadedStorageOwner(storageOwner);
+  }, [storageOwner]);
+
+  const isLoaded = loadedStorageOwner === storageOwner;
 
   // ── Profile ──────────────────────────────────────────────────────────────
 
   const setProfile = useCallback((p: Profile) => {
-    const boardLocked = Boolean(profile?.onboardingComplete && profile.board && p.board !== profile.board);
-    const nextProfile = normalizeProfile(boardLocked ? { ...p, board: profile!.board } : p);
+    const boardLocked = Boolean(profile && p.board !== profile.board);
+    const nextProfile = normalizeCompletedProfile(boardLocked ? { ...p, board: profile!.board } : p);
     if (boardLocked) {
       console.warn('Board is locked after onboarding. Reset progress to choose a different board.');
     }
+    if (!nextProfile) return;
 
-    saveJSON('matric_profile', nextProfile);
+    if (!profile) {
+      clearUserStorage();
+      setStreak(0);
+      setLastStudiedDate(null);
+      setEarnedBadges([]);
+      setPendingBadges([]);
+      setScheduleSelectionConfigured(false);
+      setEvents([]);
+      setAiScheduleState(null);
+      setTutorChatHistoryState([]);
+      setPracticeHistory([]);
+      setReminderSettingsState(DEFAULT_REMINDER_SETTINGS);
+    }
+
+    saveUserJSON('matric_profile', nextProfile);
     setProfileState(nextProfile);
     setChapterCompletion((prev) => {
-      const next = { ...prev };
+      const next = profile ? { ...prev } : {};
       for (const subj of nextProfile.subjects) {
         if (!next[subj]) {
           next[subj] = {};
@@ -384,111 +420,31 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      saveJSON('matric_chapters', next);
+      saveUserJSON('matric_chapters', next);
       return next;
     });
-  }, [profile]);
+  }, [clearUserStorage, profile, saveUserJSON]);
 
   const clearProfile = useCallback(() => {
-    localStorage.removeItem('matric_profile');
+    removeUserItem('matric_profile');
     setProfileState(null);
-  }, []);
+  }, [removeUserItem]);
 
   const resetProgress = useCallback(() => {
+    clearUserStorage();
     setProfileState(null);
-    localStorage.removeItem('matric_profile');
-
     setChapterCompletion({});
-    localStorage.removeItem('matric_chapters');
     setScheduleSelectionConfigured(false);
-    localStorage.removeItem('matric_schedule_selection_configured');
-
     setStreak(0);
     setLastStudiedDate(null);
-    localStorage.removeItem('matric_streak');
-
     setEarnedBadges([]);
     setPendingBadges([]);
-    localStorage.removeItem('matric_badges');
-
     setAiScheduleState(null);
-    localStorage.removeItem('matric_ai_schedule');
-
     setTutorChatHistoryState([]);
-    localStorage.removeItem('tutorChatHistory');
-
     setPracticeHistory([]);
-    localStorage.removeItem('matric_practice_history');
-
     setEvents([]);
-    localStorage.removeItem('matric_events');
-
     setReminderSettingsState(DEFAULT_REMINDER_SETTINGS);
-    localStorage.removeItem('matric_reminder_settings');
-    localStorage.removeItem('matric_definition_checks');
-  }, []);
-
-  const loadDemoData = useCallback(() => {
-    const demoSubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
-    const demoProfile = normalizeProfile({
-      board: 'Punjab Board',
-      subjects: demoSubjects,
-      examDate: addDaysDateOnly(88),
-      onboardingComplete: true,
-    });
-
-    const completion = buildEmptyCompletion(demoSubjects);
-    completion.Physics['Measurements'] = { done: true, selectedForSchedule: false };
-    completion.Chemistry['Fundamentals of Chemistry'] = { done: true, selectedForSchedule: false };
-    completion.Mathematics['Matrices and Determinants'] = { done: false, selectedForSchedule: true };
-    completion.Biology['Introduction to Biology'] = { done: true, selectedForSchedule: false };
-
-    const schedule = buildDemoSchedule();
-    const demoStreak = { count: 3, lastDate: todayDateOnly() };
-    const demoBadges = ['first_chapter', 'three_day_streak'];
-    const demoEvents: StudyEvent[] = [
-      { id: 'demo-revision', title: 'Physics revision check', date: addDaysDateOnly(2), type: 'revision' },
-      { id: 'demo-test', title: 'Math practice test', date: addDaysDateOnly(5), type: 'test' },
-    ];
-    const demoPractice: PracticeAttempt[] = [
-      {
-        id: 'demo-practice-1',
-        type: 'chapter',
-        examStyle: 'board-mcq',
-        subject: 'Physics',
-        chapter: 'Measurements',
-        date: new Date().toISOString(),
-        score: 2,
-        total: 5,
-        totalQuestions: 5,
-      },
-    ];
-    const demoReminders: ReminderSettings = { enabled: true, time: '18:00' };
-
-    setProfileState(demoProfile);
-    setChapterCompletion(completion);
-    setScheduleSelectionConfigured(true);
-    setAiScheduleState(schedule);
-    setStreak(demoStreak.count);
-    setLastStudiedDate(demoStreak.lastDate);
-    setEarnedBadges(demoBadges);
-    setPendingBadges([]);
-    setEvents(demoEvents);
-    setTutorChatHistoryState([]);
-    setPracticeHistory(demoPractice);
-    setReminderSettingsState(demoReminders);
-
-    saveJSON('matric_profile', demoProfile);
-    saveJSON('matric_chapters', completion);
-    saveJSON('matric_schedule_selection_configured', true);
-    saveJSON('matric_ai_schedule', schedule);
-    saveJSON('matric_streak', demoStreak);
-    saveJSON('matric_badges', demoBadges);
-    saveJSON('matric_events', demoEvents);
-    saveJSON('tutorChatHistory', []);
-    saveJSON('matric_practice_history', demoPractice);
-    saveJSON('matric_reminder_settings', demoReminders);
-  }, []);
+  }, [clearUserStorage]);
 
   // ── Computed progress ─────────────────────────────────────────────────────
 
@@ -526,11 +482,11 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     setEarnedBadges((prev) => {
       if (prev.includes(id)) return prev;
       const next = [...prev, id];
-      saveJSON('matric_badges', next);
+      saveUserJSON('matric_badges', next);
       return next;
     });
     setPendingBadges((q) => [...q, id]);
-  }, []);
+  }, [saveUserJSON]);
 
   const dismissPendingBadge = useCallback(() => {
     setPendingBadges((q) => q.slice(1));
@@ -577,8 +533,8 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
     setStreak(newStreak);
     setLastStudiedDate(today);
-    saveJSON('matric_streak', { count: newStreak, lastDate: today });
-  }, [lastStudiedDate, streak, unlockBadge]);
+    saveUserJSON('matric_streak', { count: newStreak, lastDate: today });
+  }, [lastStudiedDate, saveUserJSON, streak, unlockBadge]);
 
   // ── Chapter completion ────────────────────────────────────────────────────
 
@@ -596,7 +552,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
           ...prev,
           [subject]: { ...prev[subject], [chapter]: nextState },
         };
-        saveJSON('matric_chapters', next);
+        saveUserJSON('matric_chapters', next);
 
         if (!prevDone) {
           const totalDoneBefore = Object.values(prev)
@@ -620,7 +576,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
       recordStudyActivity();
     },
-    [unlockBadge, recordStudyActivity],
+    [recordStudyActivity, saveUserJSON, unlockBadge],
   );
 
   const toggleChapterScheduleSelection = useCallback((subject: string, chapter: string) => {
@@ -637,10 +593,10 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
           },
         },
       };
-      saveJSON('matric_chapters', next);
+      saveUserJSON('matric_chapters', next);
       return next;
     });
-  }, []);
+  }, [saveUserJSON]);
 
   const setSubjectScheduleSelection = useCallback((subject: string, selected: boolean) => {
     setChapterCompletion((prev) => {
@@ -654,38 +610,38 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
         };
       }
       const next: ChapterCompletion = { ...prev, [subject]: nextSubject };
-      saveJSON('matric_chapters', next);
+      saveUserJSON('matric_chapters', next);
       return next;
     });
-  }, []);
+  }, [saveUserJSON]);
 
   const markScheduleSelectionConfigured = useCallback(() => {
     setScheduleSelectionConfigured(true);
-    saveJSON('matric_schedule_selection_configured', true);
-  }, []);
+    saveUserJSON('matric_schedule_selection_configured', true);
+  }, [saveUserJSON]);
 
   // ── AI Schedule ───────────────────────────────────────────────────────────
 
   const setAiSchedule = useCallback((s: AiSchedule | null) => {
     setAiScheduleState(s);
     if (s) {
-      saveJSON('matric_ai_schedule', s);
+      saveUserJSON('matric_ai_schedule', s);
     } else {
-      localStorage.removeItem('matric_ai_schedule');
+      removeUserItem('matric_ai_schedule');
     }
-  }, []);
+  }, [removeUserItem, saveUserJSON]);
 
   // ── AI Tutor ───────────────────────────────────────────────────────────────
 
   const setTutorChatHistory = useCallback((messages: TutorChatMessage[]) => {
     setTutorChatHistoryState(messages);
-    saveJSON('tutorChatHistory', messages);
-  }, []);
+    saveUserJSON('tutorChatHistory', messages);
+  }, [saveUserJSON]);
 
   const clearTutorChatHistory = useCallback(() => {
     setTutorChatHistoryState([]);
-    localStorage.removeItem('tutorChatHistory');
-  }, []);
+    removeUserItem('tutorChatHistory');
+  }, [removeUserItem]);
 
   const addPracticeAttempt = useCallback((attempt: Omit<PracticeAttempt, 'id' | 'date'>) => {
     const nextAttempt: PracticeAttempt = {
@@ -700,7 +656,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
     setPracticeHistory((prev) => {
       const next = [nextAttempt, ...prev].slice(0, 30);
-      saveJSON('matric_practice_history', next);
+      saveUserJSON('matric_practice_history', next);
 
       const pct = nextAttempt.total > 0 ? nextAttempt.score / nextAttempt.total : 0;
       if (pct >= 0.9) unlockBadge('test_hero');
@@ -719,7 +675,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       return next;
     });
     recordStudyActivity();
-  }, [recordStudyActivity, unlockBadge]);
+  }, [recordStudyActivity, saveUserJSON, unlockBadge]);
 
   // ── Events ───────────────────────────────────────────────────────────────
 
@@ -727,19 +683,19 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     (event: Omit<StudyEvent, 'id'>) => {
       const next = [...events, { ...event, id: Date.now().toString() }];
       setEvents(next);
-      saveJSON('matric_events', next);
+      saveUserJSON('matric_events', next);
       unlockBadge('planner_pro');
     },
-    [events, unlockBadge],
+    [events, saveUserJSON, unlockBadge],
   );
 
   const removeEvent = useCallback(
     (id: string) => {
       const next = events.filter((e) => e.id !== id);
       setEvents(next);
-      saveJSON('matric_events', next);
+      saveUserJSON('matric_events', next);
     },
-    [events],
+    [events, saveUserJSON],
   );
 
   const setReminderSettings = useCallback((settings: ReminderSettings) => {
@@ -749,16 +705,16 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       lastShownDate: settings.lastShownDate,
     };
     setReminderSettingsState(next);
-    saveJSON('matric_reminder_settings', next);
-  }, []);
+    saveUserJSON('matric_reminder_settings', next);
+  }, [saveUserJSON]);
 
   const markReminderShown = useCallback((date: string) => {
     setReminderSettingsState((prev) => {
       const next = { ...prev, lastShownDate: date };
-      saveJSON('matric_reminder_settings', next);
+      saveUserJSON('matric_reminder_settings', next);
       return next;
     });
-  }, []);
+  }, [saveUserJSON]);
 
   if (!isLoaded) {
     return (
@@ -781,7 +737,6 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
         setProfile,
         clearProfile,
         resetProgress,
-        loadDemoData,
         currentMode,
         streak,
         lastStudiedDate,

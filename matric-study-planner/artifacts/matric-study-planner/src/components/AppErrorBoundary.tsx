@@ -36,7 +36,7 @@ export class AppErrorBoundary extends React.Component<React.PropsWithChildren, A
     if (!this.state.error) return this.props.children;
 
     return (
-      <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background px-5 py-10 shadow-[0_0_40px_rgba(0,0,0,0.05)]">
+      <div className="app-shell px-5 py-10">
         <div className="flex min-h-[80dvh] items-center justify-center">
           <div className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
             <h1 className="text-xl font-black text-amber-950">Something did not load correctly</h1>

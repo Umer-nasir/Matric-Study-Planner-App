@@ -8,7 +8,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import type { Unsubscribe, User } from 'firebase/auth';
-import { getFirebaseServices } from '@/lib/firebase';
+import { getFirebaseServices, isFirebaseConfigured } from '@/lib/firebase';
 
 const AUTH_GUEST_KEY = 'matric_auth_guest';
 const AUTH_USER_KEY = 'matric_auth_user';
@@ -94,7 +94,7 @@ function googleSignInErrorMessage(code: string): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadStoredUser());
   const [isGuest, setIsGuest] = useState(() => localStorage.getItem(AUTH_GUEST_KEY) === 'true');
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(isFirebaseConfigured);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +102,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void getFirebaseServices()
       .then(async (services) => {
-        if (!services || cancelled) return;
+        if (!services || cancelled) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
         const { getRedirectResult, onAuthStateChanged } = await import('firebase/auth');
         if (cancelled) return;
 
@@ -124,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         unsubscribe = onAuthStateChanged(services.auth, (user) => {
           if (user) {
             if (sessionStorage.getItem(AUTH_SIGNING_OUT_KEY) === 'true') {
+              setLoading(false);
               return;
             }
             const authUser = toAuthUser(user);
@@ -135,9 +139,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setCurrentUser(null);
             removeLocalStorageItem(AUTH_USER_KEY);
           }
+          setLoading(false);
         });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
       cancelled = true;
@@ -176,7 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const continueAsGuest = useCallback(() => {
-    // Intentional hackathon scope: auth personalizes entry only; study data remains localStorage-only for both Google and Guest users.
     setIsGuest(true);
     setCurrentUser(null);
     setLocalStorageItem(AUTH_GUEST_KEY, 'true');

@@ -33,13 +33,13 @@ export function StreakCounter({ compact = false }: StreakCounterProps) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-      className="bg-card rounded-2xl border border-card-border p-4 flex items-center gap-4"
+      className="flex items-center gap-4 rounded-[1.4rem] border border-orange-100/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.95),rgba(255,247,237,0.9))] p-4 shadow-[0_10px_30px_rgba(87,53,22,0.06)]"
       data-testid="streak-counter"
     >
       <motion.div
         animate={streak > 0 ? { scale: [1, 1.15, 1] } : {}}
         transition={{ duration: 0.4, delay: 0.3 }}
-        className="w-12 h-12 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-100 bg-orange-50 shadow-sm"
       >
         <Flame
           className={streak > 0 ? 'text-orange-500' : 'text-muted-foreground'}

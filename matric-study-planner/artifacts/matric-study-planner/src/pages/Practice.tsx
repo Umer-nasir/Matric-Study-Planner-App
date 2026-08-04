@@ -28,6 +28,7 @@ import { ModeIndicator } from '@/components/ModeIndicator';
 import { SubjectIcon } from '@/components/SubjectIcon';
 import { useAppContext } from '@/context/AppContext';
 import type { ExamStyleTag, PracticeAttempt } from '@/context/AppContext';
+import { useAuthContext } from '@/context/AuthContext';
 import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { apiUrl } from '@/lib/api';
 import {
@@ -37,6 +38,7 @@ import {
   subjectNameDirectionClass,
 } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
+import { getUserDataOwner, userDataStorageKey } from '@/lib/userStorage';
 
 type QuestionType = 'mcq' | 'short' | 'long' | 'definition';
 type PracticeMode = 'chapter' | 'quiz' | 'revision';
@@ -112,9 +114,10 @@ function definitionKey(subject: string, chapter: string, term: string): string {
   return `${subject}::${chapter}::${term}`.toLowerCase();
 }
 
-function loadDefinitionChecks(): Record<string, DefinitionCheckResult> {
+function loadDefinitionChecks(storageKey: string | null): Record<string, DefinitionCheckResult> {
+  if (!storageKey) return {};
   try {
-    const raw = localStorage.getItem('matric_definition_checks');
+    const raw = localStorage.getItem(storageKey);
     return raw ? (JSON.parse(raw) as Record<string, DefinitionCheckResult>) : {};
   } catch {
     return {};
@@ -142,6 +145,11 @@ function attemptType(attempt: PracticeAttempt): PracticeAttemptType {
 
 export default function Practice() {
   const { profile, currentMode, chapterCompletion, practiceHistory, addPracticeAttempt } = useAppContext();
+  const { currentUser, isGuest } = useAuthContext();
+  const storageOwner = getUserDataOwner(currentUser?.uid, isGuest);
+  const definitionChecksStorageKey = storageOwner
+    ? userDataStorageKey(storageOwner, 'matric_definition_checks')
+    : null;
   const isFocus = currentMode === 'focus';
   const defaultTypes: QuestionType[] = isFocus
     ? ['mcq', 'short']
@@ -168,7 +176,7 @@ export default function Practice() {
   const [definitionIndex, setDefinitionIndex] = useState(0);
   const [definitionAnswers, setDefinitionAnswers] = useState<Record<string, string>>({});
   const [definitionChecks, setDefinitionChecks] = useState<Record<string, DefinitionCheckResult>>(() =>
-    loadDefinitionChecks(),
+    loadDefinitionChecks(definitionChecksStorageKey),
   );
   const [checkingDefinitionKey, setCheckingDefinitionKey] = useState<string | null>(null);
   const [definitionError, setDefinitionError] = useState<string | null>(null);
@@ -640,7 +648,13 @@ export default function Practice() {
       const result = data.data;
       setDefinitionChecks((prev) => {
         const next = { ...prev, [key]: result };
-        localStorage.setItem('matric_definition_checks', JSON.stringify(next));
+        if (definitionChecksStorageKey) {
+          try {
+            localStorage.setItem(definitionChecksStorageKey, JSON.stringify(next));
+          } catch {
+            // Keep the result in memory if browser storage is unavailable.
+          }
+        }
         return next;
       });
     } catch (err) {
@@ -682,13 +696,13 @@ export default function Practice() {
     `${labelSubject(target.subject)} - ${labelChapter(target.subject, target.chapter)}`;
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background pb-28 shadow-[0_0_40px_rgba(0,0,0,0.05)]">
-      <div className="px-5 pt-8 pb-6 space-y-5">
-        <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-lg">
+    <div className="app-shell pb-28">
+      <div className="space-y-5 px-5 pb-6 pt-8 sm:px-7">
+        <div className="premium-hero rounded-[2rem] p-6 text-primary-foreground">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest opacity-80">Practice</p>
-              <h1 className="mt-1 text-3xl font-black tracking-tight">Test Yourself</h1>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] opacity-70">Practice arena</p>
+              <h1 className="font-display mt-1 text-3xl font-extrabold">Test Yourself</h1>
               <p className="mt-2 text-sm opacity-90">
                 {sessionsThisWeek} practice session{sessionsThisWeek !== 1 ? 's' : ''} completed this week
               </p>
@@ -697,7 +711,7 @@ export default function Practice() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-secondary p-1">
+        <div className="glass-surface grid grid-cols-3 gap-2 rounded-[1.4rem] p-1.5">
           {PRACTICE_MODES.map((mode) => {
             const Icon = mode.icon;
             const selected = practiceMode === mode.value;
@@ -707,7 +721,7 @@ export default function Practice() {
                 type="button"
                 onClick={() => setPracticeMode(mode.value)}
                 className={`flex min-h-[44px] items-center justify-center gap-1 rounded-xl text-xs font-black transition-colors ${
-                  selected ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
+                  selected ? 'bg-white text-primary shadow-[0_5px_16px_rgba(56,45,120,0.1)]' : 'text-muted-foreground'
                 }`}
               >
                 <Icon size={14} />

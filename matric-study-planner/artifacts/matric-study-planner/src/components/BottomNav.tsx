@@ -15,8 +15,8 @@ export function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 pb-[calc(1.25rem+env(safe-area-inset-bottom))] max-w-[480px] mx-auto shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center justify-around h-16 px-1">
+    <div className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-[560px] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div className="glass-surface flex h-[70px] items-center justify-around rounded-[1.65rem] px-1.5 shadow-[0_18px_45px_rgba(38,32,78,0.18)]">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = location === tab.path;
@@ -25,7 +25,7 @@ export function BottomNav() {
             <Link
               key={tab.path}
               href={tab.path}
-              className="flex-1 flex flex-col items-center justify-center min-h-[56px] min-w-0 focus:outline-none relative"
+              className="relative flex min-h-[58px] min-w-0 flex-1 flex-col items-center justify-center rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               data-testid={tab.id}
               aria-label={tab.name}
               aria-current={isActive ? 'page' : undefined}
@@ -34,7 +34,7 @@ export function BottomNav() {
               {isActive && (
                 <motion.div
                   layoutId="bottom-nav-pill"
-                  className="absolute inset-x-1 top-1.5 h-10 bg-primary/8 rounded-2xl"
+                  className="absolute inset-x-1 top-1 h-[50px] rounded-2xl border border-primary/10 bg-[linear-gradient(180deg,rgba(116,96,255,0.14),rgba(116,96,255,0.07))]"
                   transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}
@@ -46,14 +46,14 @@ export function BottomNav() {
                   transition={{ type: 'spring', stiffness: 500, damping: 20 }}
                 >
                   <Icon
-                    size={20}
+                    size={19}
                     strokeWidth={isActive ? 2.5 : 2}
                     className={`transition-colors duration-200 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
                   />
                 </motion.div>
                 <span
-                  className={`text-[9px] font-medium tracking-wide transition-colors duration-200 ${
-                    isActive ? 'text-primary' : 'text-muted-foreground'
+                  className={`text-[9px] font-bold tracking-[-0.01em] transition-colors duration-200 ${
+                    isActive ? 'text-primary' : 'text-muted-foreground/90'
                   }`}
                 >
                   {tab.name}

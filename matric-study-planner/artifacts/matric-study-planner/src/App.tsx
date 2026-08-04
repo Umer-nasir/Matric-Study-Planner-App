@@ -16,6 +16,7 @@ import Profile from '@/pages/Profile';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { BottomNav } from '@/components/BottomNav';
 import { BadgeModal } from '@/components/BadgeModal';
+import { hasCompletedOnboarding, postAuthRoute } from '@/lib/onboardingProfile';
 
 const pageVariants: Variants = {
   initial: { opacity: 0, x: 20 },
@@ -80,7 +81,7 @@ function MainFallbackRoute() {
   }, [setLocation]);
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center">
+    <div className="app-shell flex items-center justify-center">
       <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
     </div>
   );
@@ -91,6 +92,7 @@ function ProtectedRoutes() {
   const { currentUser, isGuest, loading } = useAuthContext();
   const [location, setLocation] = useLocation();
   const hasAuthEntry = Boolean(currentUser) || isGuest;
+  const isOnboardingComplete = hasCompletedOnboarding(profile);
   const normalizedLocation =
     location.length > 1 && location.endsWith('/') ? location.replace(/\/+$/, '') : location;
 
@@ -110,19 +112,27 @@ function ProtectedRoutes() {
     if (!hasAuthEntry) return;
 
     if (location === '/portal') {
-      setLocation(profile?.onboardingComplete ? '/dashboard' : '/onboarding');
+      setLocation(postAuthRoute(profile));
       return;
     }
 
-    if (!profile?.onboardingComplete && location !== '/onboarding') {
+    if (!isOnboardingComplete && location !== '/onboarding') {
       setLocation('/onboarding');
     }
-    if (profile?.onboardingComplete && (location === '/' || location === '/onboarding')) {
+    if (isOnboardingComplete && (location === '/' || location === '/onboarding')) {
       setLocation('/dashboard');
     }
-  }, [hasAuthEntry, loading, profile, location, normalizedLocation, setLocation]);
+  }, [hasAuthEntry, isOnboardingComplete, loading, profile, location, normalizedLocation, setLocation]);
 
-  if (normalizedLocation === '/onboarding' && hasAuthEntry && !profile?.onboardingComplete) {
+  if (loading) {
+    return (
+      <div className="app-shell flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (normalizedLocation === '/onboarding' && hasAuthEntry && !isOnboardingComplete) {
     return (
       <AnimatePresence mode="wait">
         <Switch key="onboarding-direct-switch">
@@ -144,14 +154,6 @@ function ProtectedRoutes() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-[100dvh] max-w-[480px] mx-auto bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-      </div>
-    );
-  }
-
   if (!hasAuthEntry) {
     return (
       <AnimatePresence mode="wait">
@@ -163,7 +165,7 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!profile?.onboardingComplete) {
+  if (!isOnboardingComplete) {
     return (
       <AnimatePresence mode="wait">
         <Switch key="onboarding-switch">

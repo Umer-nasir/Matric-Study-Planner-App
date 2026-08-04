@@ -234,16 +234,17 @@ export default function Syllabus() {
   if (!profile) return null;
 
   return (
-    <div className="min-h-[100dvh] max-w-[480px] mx-auto pb-24 bg-background shadow-[0_0_40px_rgba(0,0,0,0.05)]">
+    <div className="app-shell pb-24">
       <motion.div
-        className="px-5 pt-8 pb-6 space-y-5"
+        className="space-y-5 px-5 pb-6 pt-8 sm:px-7"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
         {/* Header */}
         <motion.div variants={cardVariants}>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Syllabus Tracker</h1>
+          <p className="eyebrow mb-2">Curriculum progress</p>
+          <h1 className="font-display text-[1.8rem] font-extrabold text-foreground">Syllabus Tracker</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Check off chapters as you revise them.
           </p>
@@ -252,7 +253,7 @@ export default function Syllabus() {
         {/* Overall progress card */}
         <motion.div
           variants={cardVariants}
-          className="rounded-2xl bg-card border border-border shadow-sm p-4"
+          className="glass-surface rounded-[1.4rem] p-5"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-foreground">Overall Progress</span>
