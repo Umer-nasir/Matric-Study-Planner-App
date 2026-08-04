@@ -1,15 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, ChevronDown, FileText, Paperclip, Send, Sparkles, X, Zap } from 'lucide-react';
+import { FileText, Paperclip, Send, Sparkles, X, Zap } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ModeIndicator } from '@/components/ModeIndicator';
+import { TutorSubjectSelect } from '@/components/TutorSubjectSelect';
 import { useAppContext } from '@/context/AppContext';
 import type { TutorChatMessage } from '@/context/AppContext';
 import { apiUrl } from '@/lib/api';
 import { buildTutorSubjectOptions } from '@/lib/tutorSubjectOptions';
-import {
-  subjectDisplayName,
-  subjectStarterQuestions,
-} from '@/lib/subjectLanguage';
+import { subjectStarterQuestions } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
 
 type TutorApiMessage = {
@@ -426,39 +424,16 @@ export default function AiTutor() {
           <ModeIndicator />
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-            <BookOpen size={14} />
-            <span>Ask about</span>
-            {isClassifyingSubject && (
-              <span className="inline-flex items-center gap-1 text-primary" aria-live="polite">
-                <Sparkles size={11} className="animate-pulse" /> AI choosing
-              </span>
-            )}
-          </label>
-          <div className="relative">
-            <select
-              value={selectedSubject}
-              disabled={isClassifyingSubject}
-              onChange={(event) => {
-                autoSelectedSubjectRef.current = null;
-                setSelectedSubject(event.target.value);
-              }}
-              className="min-h-[44px] appearance-none rounded-2xl border border-border bg-background py-2 pl-3 pr-8 text-xs font-semibold text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-wait disabled:opacity-70"
-              aria-label="Select tutor subject"
-            >
-              {subjectOptions.map((subject) => (
-                <option key={subject} value={subject}>
-                  {subject === 'General' ? 'General' : subjectDisplayName(subject)}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-          </div>
-        </div>
+        <TutorSubjectSelect
+          value={selectedSubject}
+          options={subjectOptions}
+          profileSubjects={profile?.subjects}
+          isClassifying={isClassifyingSubject}
+          onValueChange={(subject) => {
+            autoSelectedSubjectRef.current = null;
+            setSelectedSubject(subject);
+          }}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-44 pt-4 sm:px-7">
