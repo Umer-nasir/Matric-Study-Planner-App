@@ -16,6 +16,12 @@ type TutorApiMessage = {
   content: string;
 };
 
+type TutorApiResponse = {
+  reply?: string;
+  subject?: string;
+  error?: string;
+};
+
 type PendingAttachment = {
   file: File;
   name: string;
@@ -108,7 +114,7 @@ function createImageThumbnail(file: File): Promise<string> {
 function uploadTutorRequest(
   formData: FormData,
   onProgress: (progress: number) => void,
-): Promise<{ reply?: string; error?: string }> {
+): Promise<TutorApiResponse> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', apiUrl('/api/tutor-chat'));
@@ -120,9 +126,9 @@ function uploadTutorRequest(
       }
     };
     xhr.onload = () => {
-      let data: { reply?: string; error?: string } = {};
+      let data: TutorApiResponse = {};
       try {
-        data = JSON.parse(xhr.responseText || '{}') as { reply?: string; error?: string };
+        data = JSON.parse(xhr.responseText || '{}') as TutorApiResponse;
       } catch {
         const isHtmlError = xhr.responseText.trim().startsWith('<!DOCTYPE html');
         data = {
@@ -142,26 +148,6 @@ function uploadTutorRequest(
     xhr.onerror = () => reject(new Error('I could not reach the AI tutor right now. Please try again in a moment.'));
     xhr.send(formData);
   });
-}
-
-async function classifyTutorQuestion(
-  message: string,
-  availableSubjects: string[],
-  conversationHistory: TutorApiMessage[],
-): Promise<string> {
-  const response = await fetch(apiUrl('/api/tutor-classify-subject'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, availableSubjects, conversationHistory }),
-  });
-  const data = (await response.json().catch(() => ({}))) as {
-    subject?: string;
-    error?: string;
-  };
-  if (!response.ok) {
-    throw new Error(data.error ?? 'The tutor could not identify the subject.');
-  }
-  return typeof data.subject === 'string' ? data.subject : 'General';
 }
 
 function TypingIndicator({ isClassifying = false }: { isClassifying?: boolean }) {
@@ -318,42 +304,23 @@ export default function AiTutor() {
       .slice(-8)
       .map(({ role, content }) => ({ role, content }));
 
-    let subjectForRequest = selectedSubject;
     const canAutoChange =
       selectedSubject === 'General' ||
       (autoSelectedSubjectRef.current !== null &&
         selectedSubject === autoSelectedSubjectRef.current);
-
-    if (trimmed && canAutoChange) {
-      setIsClassifyingSubject(true);
-      try {
-        const classifiedSubject = await classifyTutorQuestion(
-          trimmed,
-          subjectOptions.filter((subject) => subject !== 'General'),
-          conversationHistory,
-        );
-        subjectForRequest = subjectOptions.includes(classifiedSubject)
-          ? classifiedSubject
-          : 'General';
-        autoSelectedSubjectRef.current =
-          subjectForRequest === 'General' ? null : subjectForRequest;
-        setSelectedSubject(subjectForRequest);
-      } catch {
-        subjectForRequest = 'General';
-        autoSelectedSubjectRef.current = null;
-        setSelectedSubject('General');
-      } finally {
-        setIsClassifyingSubject(false);
-      }
-    }
+    const shouldAutoClassify = Boolean(trimmed && canAutoChange);
+    const subjectForRequest = shouldAutoClassify ? 'General' : selectedSubject;
+    const availableSubjects = subjectOptions.filter((subject) => subject !== 'General');
+    setIsClassifyingSubject(shouldAutoClassify);
 
     try {
-      let data: { reply?: string; error?: string };
+      let data: TutorApiResponse;
       if (attachment) {
         const formData = new FormData();
         formData.append('message', trimmed);
         formData.append('currentMode', currentMode);
         formData.append('conversationHistory', JSON.stringify(conversationHistory));
+        formData.append('availableSubjects', JSON.stringify(availableSubjects));
         formData.append('file', attachment.file);
         if (subjectForRequest !== 'General') formData.append('subject', subjectForRequest);
         if (profile?.board) formData.append('board', profile.board);
@@ -368,10 +335,11 @@ export default function AiTutor() {
             board: profile?.board,
             currentMode,
             conversationHistory,
+            availableSubjects,
           }),
         });
 
-        data = (await res.json()) as { reply?: string; error?: string };
+        data = (await res.json()) as TutorApiResponse;
         if (!res.ok) {
           throw new Error(data.error ?? 'The tutor could not answer right now.');
         }
@@ -379,6 +347,11 @@ export default function AiTutor() {
 
       if (!data.reply) {
         throw new Error(data.error ?? 'The tutor could not answer right now.');
+      }
+
+      if (shouldAutoClassify && data.subject && subjectOptions.includes(data.subject)) {
+        autoSelectedSubjectRef.current = data.subject === 'General' ? null : data.subject;
+        setSelectedSubject(data.subject);
       }
 
       setTutorChatHistory([
@@ -397,6 +370,7 @@ export default function AiTutor() {
       ]);
     } finally {
       setIsSending(false);
+      setIsClassifyingSubject(false);
       setUploadProgress(null);
     }
   }

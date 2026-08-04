@@ -13,6 +13,14 @@ export const TUTOR_SUBJECTS = [
 const TUTOR_SUBJECT_SET = new Set<string>(TUTOR_SUBJECTS);
 
 export function sanitizeAvailableTutorSubjects(value: unknown): string[] {
+  if (typeof value === 'string') {
+    try {
+      return sanitizeAvailableTutorSubjects(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+
   if (!Array.isArray(value)) return [];
 
   return [
@@ -64,4 +72,24 @@ export function parseTutorSubjectClassification(
     (subject) => normalizeLabel(subject) === candidate,
   );
   return match ?? 'General';
+}
+
+export function parseTaggedTutorReply(
+  reply: string,
+  availableSubjects: string[],
+  fallbackSubject: string,
+): { reply: string; subject: string } {
+  const match = reply.match(/^\s*\[\[SUBJECT:\s*([^\]\r\n]+)\]\]\s*/i);
+  if (!match) return { reply, subject: fallbackSubject };
+
+  const cleanedReply = reply.slice(match[0].length).trim();
+  const subject =
+    fallbackSubject !== 'General'
+      ? fallbackSubject
+      : parseTutorSubjectClassification(match[1] ?? '', availableSubjects);
+
+  return {
+    reply: cleanedReply || reply,
+    subject,
+  };
 }
