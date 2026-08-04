@@ -10,7 +10,6 @@ import {
   subjectStarterQuestions,
 } from '@/lib/subjectLanguage';
 import { rtlTextClass } from '@/lib/textDirection';
-import { detectTutorSubject } from '@/lib/tutorSubjectDetection';
 
 type TutorApiMessage = {
   role: 'user' | 'assistant';
@@ -145,7 +144,27 @@ function uploadTutorRequest(
   });
 }
 
-function TypingIndicator() {
+async function classifyTutorQuestion(
+  message: string,
+  availableSubjects: string[],
+  conversationHistory: TutorApiMessage[],
+): Promise<string> {
+  const response = await fetch(apiUrl('/api/tutor-classify-subject'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, availableSubjects, conversationHistory }),
+  });
+  const data = (await response.json().catch(() => ({}))) as {
+    subject?: string;
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(data.error ?? 'The tutor could not identify the subject.');
+  }
+  return typeof data.subject === 'string' ? data.subject : 'General';
+}
+
+function TypingIndicator({ isClassifying = false }: { isClassifying?: boolean }) {
   return (
     <div className="flex justify-start">
       <div className="rounded-2xl rounded-bl-md bg-card border border-border px-4 py-3 shadow-sm">
@@ -161,7 +180,7 @@ function TypingIndicator() {
             ))}
           </div>
           <span className="text-xs font-semibold text-muted-foreground">
-            Preparing exam-focused answer...
+            {isClassifying ? 'Choosing the right subject...' : 'Preparing exam-focused answer...'}
           </span>
         </div>
       </div>
@@ -232,6 +251,7 @@ export default function AiTutor() {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isClassifyingSubject, setIsClassifyingSubject] = useState(false);
   const autoSelectedSubjectRef = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -253,52 +273,12 @@ export default function AiTutor() {
   }, [selectedSubject, subjectOptions]);
 
   useEffect(() => {
-    if (draft.trim().length === 0) return;
-
-    const detectedSubject = detectTutorSubject(
-      draft,
-      subjectOptions.filter((subject) => subject !== 'General'),
-    );
-    const canAutoChange =
-      selectedSubject === 'General' ||
-      (autoSelectedSubjectRef.current !== null && selectedSubject === autoSelectedSubjectRef.current);
-
-    if (!canAutoChange) return;
-
-    if (detectedSubject && detectedSubject !== selectedSubject) {
-      autoSelectedSubjectRef.current = detectedSubject;
-      setSelectedSubject(detectedSubject);
-      return;
-    }
-
-    if (!detectedSubject && autoSelectedSubjectRef.current) {
-      autoSelectedSubjectRef.current = null;
-      setSelectedSubject('General');
-    }
-  }, [draft, selectedSubject, subjectOptions]);
-
-  useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [tutorChatHistory, isSending]);
 
   async function sendMessage(rawMessage: string, attachment = pendingAttachment) {
     const trimmed = rawMessage.trim();
     if ((!trimmed && !attachment) || isSending) return;
-    const canAutoChange =
-      selectedSubject === 'General' ||
-      (autoSelectedSubjectRef.current !== null &&
-        selectedSubject === autoSelectedSubjectRef.current);
-    const detectedSubject = canAutoChange
-      ? detectTutorSubject(
-          trimmed,
-          subjectOptions.filter((subject) => subject !== 'General'),
-        )
-      : null;
-    const subjectForRequest = detectedSubject ?? selectedSubject;
-    if (detectedSubject && detectedSubject !== selectedSubject) {
-      autoSelectedSubjectRef.current = detectedSubject;
-      setSelectedSubject(detectedSubject);
-    }
 
     const attachmentMeta = attachment
       ? {
@@ -337,6 +317,36 @@ export default function AiTutor() {
       )
       .slice(-8)
       .map(({ role, content }) => ({ role, content }));
+
+    let subjectForRequest = selectedSubject;
+    const canAutoChange =
+      selectedSubject === 'General' ||
+      (autoSelectedSubjectRef.current !== null &&
+        selectedSubject === autoSelectedSubjectRef.current);
+
+    if (trimmed && canAutoChange) {
+      setIsClassifyingSubject(true);
+      try {
+        const classifiedSubject = await classifyTutorQuestion(
+          trimmed,
+          subjectOptions.filter((subject) => subject !== 'General'),
+          conversationHistory,
+        );
+        subjectForRequest = subjectOptions.includes(classifiedSubject)
+          ? classifiedSubject
+          : 'General';
+        autoSelectedSubjectRef.current =
+          subjectForRequest === 'General' ? null : subjectForRequest;
+        setSelectedSubject(subjectForRequest);
+      } catch {
+        subjectForRequest = 'General';
+        autoSelectedSubjectRef.current = null;
+        setSelectedSubject('General');
+      } finally {
+        setIsClassifyingSubject(false);
+      }
+    }
+
     try {
       let data: { reply?: string; error?: string };
       if (attachment) {
@@ -444,16 +454,22 @@ export default function AiTutor() {
         <div className="mt-4 flex items-center justify-between gap-3">
           <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
             <BookOpen size={14} />
-            Ask about
+            <span>Ask about</span>
+            {isClassifyingSubject && (
+              <span className="inline-flex items-center gap-1 text-primary" aria-live="polite">
+                <Sparkles size={11} className="animate-pulse" /> AI choosing
+              </span>
+            )}
           </label>
           <div className="relative">
             <select
               value={selectedSubject}
+              disabled={isClassifyingSubject}
               onChange={(event) => {
                 autoSelectedSubjectRef.current = null;
                 setSelectedSubject(event.target.value);
               }}
-              className="min-h-[44px] appearance-none rounded-2xl border border-border bg-background py-2 pl-3 pr-8 text-xs font-semibold text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="min-h-[44px] appearance-none rounded-2xl border border-border bg-background py-2 pl-3 pr-8 text-xs font-semibold text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-wait disabled:opacity-70"
               aria-label="Select tutor subject"
             >
               {subjectOptions.map((subject) => (
@@ -526,7 +542,7 @@ export default function AiTutor() {
                 <MessageBubble key={message.id} message={message} />
               ))}
             </AnimatePresence>
-            {isSending && <TypingIndicator />}
+            {isSending && <TypingIndicator isClassifying={isClassifyingSubject} />}
             <div ref={endRef} />
           </div>
         )}
