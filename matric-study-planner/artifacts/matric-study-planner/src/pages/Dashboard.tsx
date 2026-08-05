@@ -19,6 +19,7 @@ import { SYLLABUS_DATA } from '@/data/syllabusData';
 import { MILESTONES } from '@/data/milestones';
 import { getDailyQuote } from '@/data/quotes';
 import { apiUrl } from '@/lib/api';
+import { getTimeGreeting } from '@/lib/timeGreeting';
 import {
   chapterDisplayName,
   subjectDirectionClass,
@@ -511,8 +512,7 @@ export default function Dashboard() {
   if (!profile) return null;
 
   // ── Dates ────────────────────────────────────────────────────────────────
-  const currentHour = new Date().getHours();
-  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting = getTimeGreeting();
   const examDate = new Date(profile.examDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
