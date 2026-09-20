@@ -1,5 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
+import { normalizeScheduleDates } from "../lib/scheduleDates";
+
+const envScheduleModel = process.env["GROQ_SCHEDULE_MODEL"] ?? process.env["GROQ_PRACTICE_FAST_MODEL"];
+const GROQ_SCHEDULE_MODEL =
+  envScheduleModel && envScheduleModel !== "llama-3.3-70b-versatile"
+    ? envScheduleModel
+    : "llama-3.1-8b-instant";
 
 const router: IRouter = Router();
 
@@ -17,10 +24,7 @@ interface ScheduleRequestBody {
   daysLeft: number;
   currentMode: "fun" | "balanced" | "focus";
   studyHoursPerDay?: number;
-}
-
-interface GeneratedSchedule {
-  week?: unknown[];
+  startDate?: string;
 }
 
 // ── System prompt builder ─────────────────────────────────────────────────────
@@ -59,40 +63,36 @@ Exact response format:
 }`;
 }
 
-function normalizeScheduleDates(schedule: unknown): GeneratedSchedule {
-  if (!schedule || typeof schedule !== "object") return {};
-
-  const candidate = schedule as { week?: unknown };
-  if (!Array.isArray(candidate.week)) return schedule as GeneratedSchedule;
-
-  const formatter = new Intl.DateTimeFormat("en-US", { weekday: "long" });
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
-
-  candidate.week = candidate.week.slice(0, 7).map((day, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
-
-    return {
-      ...(day && typeof day === "object" ? day : {}),
-      day: formatter.format(date),
-      date: date.toISOString().slice(0, 10),
-    };
-  });
-
-  return candidate as GeneratedSchedule;
-}
-
 // ── Endpoint ──────────────────────────────────────────────────────────────────
 
 router.post(
   "/generate-schedule",
   async (req: Request, res: Response): Promise<void> => {
-    const { subjects, daysLeft, currentMode, studyHoursPerDay = 3 } =
+    const { subjects, daysLeft, currentMode, studyHoursPerDay = 3, startDate } =
       req.body as ScheduleRequestBody;
 
     if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
       res.status(400).json({ error: "subjects array is required" });
+      return;
+    }
+
+    if (!subjects.every((item) =>
+      item &&
+      typeof item.name === "string" &&
+      Array.isArray(item.chapterList) &&
+      item.chapterList.every((chapterItem) => chapterItem && typeof chapterItem.name === "string")
+    )) {
+      res.status(400).json({ error: "subjects contains invalid chapter data" });
+      return;
+    }
+
+    if (currentMode !== "fun" && currentMode !== "balanced" && currentMode !== "focus") {
+      res.status(400).json({ error: "currentMode is invalid" });
+      return;
+    }
+
+    if (!startDate || typeof startDate !== "string") {
+      res.status(400).json({ error: "local startDate is required" });
       return;
     }
 
@@ -120,7 +120,7 @@ router.post(
 
     try {
       const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+        model: GROQ_SCHEDULE_MODEL,
         temperature: 0.3,
         max_tokens: 4096,
         messages: [
@@ -147,7 +147,15 @@ router.post(
         raw = raw.slice(jsonStart, jsonEnd + 1);
       }
 
-      const schedule = normalizeScheduleDates(JSON.parse(raw));
+      const allowedTargets = Object.fromEntries(
+        subjects.map((item) => [
+          item.name,
+          item.chapterList
+            .filter((chapterItem) => !chapterItem.done && chapterItem.selectedForSchedule !== false)
+            .map((chapterItem) => chapterItem.name),
+        ]),
+      );
+      const schedule = normalizeScheduleDates(JSON.parse(raw), startDate, allowedTargets);
 
       // Validate shape
       if (!schedule.week || !Array.isArray(schedule.week)) {

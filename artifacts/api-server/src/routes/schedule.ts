@@ -2,10 +2,11 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
 import { normalizeScheduleDates } from "../lib/scheduleDates";
 
+const envScheduleModel = process.env["GROQ_SCHEDULE_MODEL"] ?? process.env["GROQ_PRACTICE_FAST_MODEL"];
 const GROQ_SCHEDULE_MODEL =
-  process.env["GROQ_SCHEDULE_MODEL"] ??
-  process.env["GROQ_PRACTICE_FAST_MODEL"] ??
-  "llama-3.1-8b-instant";
+  envScheduleModel && envScheduleModel !== "llama-3.3-70b-versatile"
+    ? envScheduleModel
+    : "llama-3.1-8b-instant";
 
 const router: IRouter = Router();
 
