@@ -2,6 +2,11 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import Groq from "groq-sdk";
 import { normalizeScheduleDates } from "../lib/scheduleDates";
 
+const GROQ_SCHEDULE_MODEL =
+  process.env["GROQ_SCHEDULE_MODEL"] ??
+  process.env["GROQ_PRACTICE_FAST_MODEL"] ??
+  "llama-3.1-8b-instant";
+
 const router: IRouter = Router();
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -114,7 +119,7 @@ router.post(
 
     try {
       const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+        model: GROQ_SCHEDULE_MODEL,
         temperature: 0.3,
         max_tokens: 4096,
         messages: [

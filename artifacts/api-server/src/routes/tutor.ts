@@ -20,9 +20,7 @@ const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_EXTRACTED_CHARS = 4000;
 const GEMINI_TUTOR_MODEL = process.env["GEMINI_TUTOR_MODEL"] ?? "gemini-2.5-flash";
 const GROQ_TUTOR_SUBJECT_MODEL =
-  process.env["GROQ_TUTOR_SUBJECT_MODEL"] ??
-  process.env["GROQ_PRACTICE_FAST_MODEL"] ??
-  "llama-3.1-8b-instant";
+  process.env["GROQ_TUTOR_SUBJECT_MODEL"] ?? "llama-3.1-8b-instant";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -471,12 +469,12 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
   }
 
   const safeHistory = sanitizeHistory(conversationHistory);
-  let responseSubject = await resolveTutorSubject({
-    message: trimmedMessage,
-    requestedSubject: getTextField(subject),
-    availableSubjects: sanitizeAvailableTutorSubjects(availableSubjects),
-    history: safeHistory,
-  });
+  const sanitizedSubjects = sanitizeAvailableTutorSubjects(availableSubjects);
+  // Skip the blocking AI pre-classification — use the manual subject directly.
+  // Gemini tags the subject in every reply via [[SUBJECT: X]], which readTutorReply
+  // extracts, so the final responseSubject returned to the client is still accurate.
+  const manualSubject = sanitizeAvailableTutorSubjects([getTextField(subject)])[0];
+  let responseSubject = manualSubject ?? "General";
   const safeSubject = responseSubject === "General" ? undefined : responseSubject;
   const personaMatch = getSubjectPersona(safeSubject);
   console.log(`[subject-persona] /api/tutor-chat subject="${safeSubject ?? ""}" matched="${personaMatch.key}"`);
@@ -503,13 +501,13 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     board: getTextField(board),
   });
   const tutorSystemPrompt = `${systemPrompt}\n${buildTutorSubjectTagInstruction(
-    sanitizeAvailableTutorSubjects(availableSubjects),
+    sanitizedSubjects,
     responseSubject,
   )}`;
   const readTutorReply = (reply: string): string => {
     const parsed = parseTaggedTutorReply(
       reply,
-      sanitizeAvailableTutorSubjects(availableSubjects),
+      sanitizedSubjects,
       responseSubject,
     );
     responseSubject = parsed.subject;
@@ -558,15 +556,6 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
           ],
         });
         reply = readTutorReply(reply);
-        if (!personaMatch.expectsUrduScript) {
-          reply = await ensureEnglishReply({
-            apiKey,
-            model: GEMINI_TUTOR_MODEL,
-            systemPrompt,
-            originalUserContent: trimmedMessage || "Please solve/explain this question from the uploaded image.",
-            reply,
-          });
-        }
         if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
           res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
           return;
@@ -605,16 +594,6 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
         ],
       });
       reply = readTutorReply(reply);
-
-      if (!personaMatch.expectsUrduScript) {
-        reply = await ensureEnglishReply({
-          apiKey,
-          model: GEMINI_TUTOR_MODEL,
-          systemPrompt,
-          originalUserContent: documentPrompt,
-          reply,
-        });
-      }
       if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
         res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
         return;
@@ -627,7 +606,7 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
       apiKey,
       model: GEMINI_TUTOR_MODEL,
       temperature: currentMode === "focus" ? 0.2 : 0.45,
-      maxOutputTokens: 350,
+      maxOutputTokens: 280,
       systemPrompt: tutorSystemPrompt,
       contents: [
         ...geminiHistoryFromConversation(safeHistory),
@@ -635,21 +614,10 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
       ],
     });
     reply = readTutorReply(reply);
-
-    if (!personaMatch.expectsUrduScript) {
-      reply = await ensureEnglishReply({
-        apiKey,
-        model: GEMINI_TUTOR_MODEL,
-        systemPrompt,
-        originalUserContent: trimmedMessage,
-        reply,
-      });
-    }
     if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
       res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
       return;
     }
-
     res.json({ reply, subject: responseSubject });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
