@@ -265,6 +265,19 @@ function TypingIndicator() {
   );
 }
 
+function renderMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <b key={i}>{part.slice(2, -2)}</b>;
+    }
+    if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
+      return <i key={i}>{part.slice(1, -1)}</i>;
+    }
+    return part;
+  });
+}
+
 function MessageBubble({ message }: { message: TutorChatMessage }) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
@@ -286,29 +299,27 @@ function MessageBubble({ message }: { message: TutorChatMessage }) {
             : 'rounded-bl-md border border-border bg-card text-foreground'
         }`}
       >
-        {message.attachment && (
-          <div className={message.content ? 'mb-2' : ''}>
-            {message.attachment.kind === 'image' && message.attachment.previewUrl ? (
-              <img
-                src={message.attachment.previewUrl}
-                alt={message.attachment.name}
-                className="max-h-36 w-full rounded-xl object-cover"
-              />
-            ) : (
-              <div
-                className={`flex items-center gap-2 rounded-xl px-3 py-2 ${
-                  isUser ? 'bg-white/15' : 'bg-secondary'
-                }`}
-              >
-                <FileText size={16} className="shrink-0" />
-                <span className="min-w-0 truncate text-xs font-semibold">
-                  {message.attachment.name}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-        {message.content}
+        {message.attachment && <div className={message.content ? 'mb-2' : ''}>
+          {message.attachment.kind === 'image' && message.attachment.previewUrl ? (
+            <img
+              src={message.attachment.previewUrl}
+              alt={message.attachment.name}
+              className="max-h-36 w-full rounded-xl object-cover"
+            />
+          ) : (
+            <div
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 ${
+                isUser ? 'bg-white/15' : 'bg-secondary'
+              }`}
+            >
+              <FileText size={16} className="shrink-0" />
+              <span className="min-w-0 truncate text-xs font-semibold">
+                {message.attachment.name}
+              </span>
+            </div>
+          )}
+        </div>}
+        {renderMarkdown(message.content)}
       </div>
     </motion.div>
   );
