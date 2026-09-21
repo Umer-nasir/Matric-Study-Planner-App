@@ -149,7 +149,7 @@ function uploadTutorRequest(
   });
 }
 
-function TypingIndicator({ isClassifying = false }: { isClassifying?: boolean }) {
+function TypingIndicator() {
   return (
     <div className="flex justify-start">
       <div className="rounded-2xl rounded-bl-md bg-card border border-border px-4 py-3 shadow-sm">
@@ -165,7 +165,7 @@ function TypingIndicator({ isClassifying = false }: { isClassifying?: boolean })
             ))}
           </div>
           <span className="text-xs font-semibold text-muted-foreground">
-            {isClassifying ? 'Choosing the right subject...' : 'Preparing exam-focused answer...'}
+            Preparing exam-focused answer...
           </span>
         </div>
       </div>
@@ -236,8 +236,6 @@ export default function AiTutor() {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [isClassifyingSubject, setIsClassifyingSubject] = useState(false);
-  const autoSelectedSubjectRef = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -253,7 +251,6 @@ export default function AiTutor() {
   useEffect(() => {
     if (!subjectOptions.includes(selectedSubject)) {
       setSelectedSubject('General');
-      autoSelectedSubjectRef.current = null;
     }
   }, [selectedSubject, subjectOptions]);
 
@@ -303,15 +300,6 @@ export default function AiTutor() {
       .slice(-8)
       .map(({ role, content }) => ({ role, content }));
 
-    const canAutoChange =
-      selectedSubject === 'General' ||
-      (autoSelectedSubjectRef.current !== null &&
-        selectedSubject === autoSelectedSubjectRef.current);
-    const shouldAutoClassify = Boolean(trimmed && canAutoChange);
-    const subjectForRequest = shouldAutoClassify ? 'General' : selectedSubject;
-    const availableSubjects = subjectOptions.filter((subject) => subject !== 'General');
-    setIsClassifyingSubject(shouldAutoClassify);
-
     try {
       let data: TutorApiResponse;
       if (attachment) {
@@ -319,9 +307,8 @@ export default function AiTutor() {
         formData.append('message', trimmed);
         formData.append('currentMode', currentMode);
         formData.append('conversationHistory', JSON.stringify(conversationHistory));
-        formData.append('availableSubjects', JSON.stringify(availableSubjects));
         formData.append('file', attachment.file);
-        if (subjectForRequest !== 'General') formData.append('subject', subjectForRequest);
+        if (selectedSubject !== 'General') formData.append('subject', selectedSubject);
         if (profile?.board) formData.append('board', profile.board);
         data = await uploadTutorRequest(formData, setUploadProgress);
       } else {
@@ -330,11 +317,10 @@ export default function AiTutor() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: trimmed,
-            subject: subjectForRequest === 'General' ? undefined : subjectForRequest,
+            subject: selectedSubject === 'General' ? undefined : selectedSubject,
             board: profile?.board,
             currentMode,
             conversationHistory,
-            availableSubjects,
           }),
         });
 
@@ -346,11 +332,6 @@ export default function AiTutor() {
 
       if (!data.reply) {
         throw new Error(data.error ?? 'The tutor could not answer right now.');
-      }
-
-      if (shouldAutoClassify && data.subject && subjectOptions.includes(data.subject)) {
-        autoSelectedSubjectRef.current = data.subject === 'General' ? null : data.subject;
-        setSelectedSubject(data.subject);
       }
 
       setTutorChatHistory([
@@ -369,7 +350,6 @@ export default function AiTutor() {
       ]);
     } finally {
       setIsSending(false);
-      setIsClassifyingSubject(false);
       setUploadProgress(null);
     }
   }
@@ -428,11 +408,7 @@ export default function AiTutor() {
           value={selectedSubject}
           options={subjectOptions}
           profileSubjects={profile?.subjects}
-          isClassifying={isClassifyingSubject}
-          onValueChange={(subject) => {
-            autoSelectedSubjectRef.current = null;
-            setSelectedSubject(subject);
-          }}
+          onValueChange={setSelectedSubject}
         />
       </div>
 
@@ -492,7 +468,7 @@ export default function AiTutor() {
                 <MessageBubble key={message.id} message={message} />
               ))}
             </AnimatePresence>
-            {isSending && <TypingIndicator isClassifying={isClassifyingSubject} />}
+            {isSending && <TypingIndicator />}
             <div ref={endRef} />
           </div>
         )}

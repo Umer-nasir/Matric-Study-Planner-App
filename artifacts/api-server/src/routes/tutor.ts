@@ -32,7 +32,6 @@ interface ConversationMessage {
 interface TutorChatRequestBody {
   message?: string;
   subject?: string;
-  availableSubjects?: unknown;
   board?: string;
   currentMode: StudyMode;
   conversationHistory?: ConversationMessage[] | string;

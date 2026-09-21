@@ -16,7 +16,6 @@ interface TutorSubjectSelectProps {
   value: string;
   options: string[];
   profileSubjects?: readonly string[];
-  isClassifying: boolean;
   onValueChange: (subject: string) => void;
 }
 
@@ -50,7 +49,6 @@ export function TutorSubjectSelect({
   value,
   options,
   profileSubjects = [],
-  isClassifying,
   onValueChange,
 }: TutorSubjectSelectProps) {
   const selectedProfileSubjects = options.filter(
@@ -66,19 +64,10 @@ export function TutorSubjectSelect({
       <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
         <BookOpen size={14} />
         <span>Ask about</span>
-        {isClassifying && (
-          <span
-            className="inline-flex items-center gap-1 text-primary"
-            aria-live="polite"
-          >
-            <Sparkles size={11} className="animate-pulse" /> AI choosing
-          </span>
-        )}
       </div>
 
       <Select
         value={value}
-        disabled={isClassifying}
         onValueChange={onValueChange}
       >
         <SelectTrigger
