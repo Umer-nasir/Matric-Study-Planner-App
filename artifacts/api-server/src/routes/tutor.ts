@@ -102,6 +102,14 @@ function getTextField(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function cleanTutorMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`/g, "")
+    .trim();
+}
+
 function buildSystemPrompt({
   currentMode,
   subject,
@@ -116,7 +124,7 @@ function buildSystemPrompt({
   if (board) context.push(`Board context: ${board}.`);
   const personaMatch = getSubjectPersona(subject);
 
-  return `You are a friendly, patient tutor helping a Matric-level (grade 9-10) student in Pakistan understand a topic. Explain in simple, clear language appropriate for their grade level - not university-level depth. Use short paragraphs, and if relevant, a simple example or analogy. If asked something unrelated to their studies, gently redirect them back to academics. Keep responses concise (aim for 100-200 words) since students are reading on mobile.
+  return `You are a friendly, patient tutor helping a Matric-level (grade 9-10) student in Pakistan understand a topic. Explain in simple, clear language appropriate for their grade level - not university-level depth. Use short paragraphs, and if relevant, a simple example or analogy. If asked something unrelated to their studies, gently redirect them back to academics. Keep responses concise (aim for 100-200 words) since students are reading on mobile. Write in clean, plain text without markdown formatting symbols like **asterisks** or # headings.
 ${context.length ? `\n${context.join("\n")}` : ""}
 ${personaMatch.persona}
 ${personaMatch.languageInstruction}
@@ -354,11 +362,12 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
             },
           ],
         });
-        if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
+        const cleanedReply = cleanTutorMarkdown(reply);
+        if (!personaMatch.expectsUrduScript && hasUrduScript(cleanedReply)) {
           res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
           return;
         }
-        res.json({ reply, subject: responseSubject });
+        res.json({ reply: cleanedReply, subject: responseSubject });
         return;
       }
 
@@ -391,11 +400,12 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
           },
         ],
       });
-      if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
+      const cleanedReply = cleanTutorMarkdown(reply);
+      if (!personaMatch.expectsUrduScript && hasUrduScript(cleanedReply)) {
         res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
         return;
       }
-      res.json({ reply, subject: responseSubject });
+      res.json({ reply: cleanedReply, subject: responseSubject });
       return;
     }
 
@@ -410,11 +420,12 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
         { role: "user", parts: [{ text: trimmedMessage }] },
       ],
     });
-    if (!personaMatch.expectsUrduScript && hasUrduScript(reply)) {
+    const cleanedReply = cleanTutorMarkdown(reply);
+    if (!personaMatch.expectsUrduScript && hasUrduScript(cleanedReply)) {
       res.status(422).json({ error: "The AI returned a non-English tutor response. Please retry." });
       return;
     }
-    res.json({ reply, subject: responseSubject });
+    res.json({ reply: cleanedReply, subject: responseSubject });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.toLowerCase().includes("invalid image data")) {
