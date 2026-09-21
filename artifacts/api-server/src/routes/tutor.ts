@@ -123,13 +123,13 @@ function buildSystemPrompt({
   if (board) context.push(`Board context: ${board}.`);
   const personaMatch = getSubjectPersona(subject);
 
-  return `You are a friendly, patient tutor helping a Matric-level (grade 9-10) student in Pakistan understand a topic. Explain in simple, clear language appropriate for their grade level - not university-level depth. Use short paragraphs, and if relevant, a simple example or analogy. If asked something unrelated to their studies, gently redirect them back to academics. Keep responses concise (aim for 100-200 words) since students are reading on mobile. Write in clean, plain text without markdown formatting symbols like **asterisks** or # headings.
+  return `You are a friendly tutor for Matric (grade 9-10) students in Pakistan. Explain in simple, clear language at their level. Keep responses short (under 150 words). Use plain text, no markdown symbols like **asterisks** or # headings. If asked something unrelated, gently redirect to academics.
 ${context.length ? `\n${context.join("\n")}` : ""}
 ${personaMatch.persona}
 ${personaMatch.languageInstruction}
 ${
   currentMode === "focus"
-    ? "\nBe direct and efficient - this student is close to exams and needs quick, exam-relevant answers, not lengthy tangents."
+    ? "\nBe direct and efficient: quick, exam-relevant answers only."
     : ""
 }`;
 }
@@ -150,6 +150,72 @@ function getInstantUrduTutorReply(message: string): string | null {
   }
 
   return "وعلیکم السلام! اردو کے کسی بھی سبق، تشریح، خط یا درخواست کے بارے میں سوال پوچھیں۔";
+}
+
+function getQuickTutorReply(message: string): string | null {
+  const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, "");
+
+  const quickReplies: Record<string, string> = {
+    "explain photosynthesis": "Photosynthesis is how plants make food using sunlight, water, and carbon dioxide, producing glucose and oxygen in chloroplasts.",
+    "what is newton's second law": "Newton's Second Law: Force = mass × acceleration (F = ma). Heavier objects need more force to accelerate.",
+    "how do i revise algebra": "Review formulas, practice factorization and quadratic equations, and solve past paper questions on simultaneous equations and inequalities.",
+    "what is a variable": "A variable is a symbol (like x or y) that represents an unknown value in mathematics.",
+    "what is a function": "A function maps each input to exactly one output. Example: f(x) = 2x + 3.",
+    "what is momentum": "Momentum = mass × velocity (p = mv). It is a vector quantity with direction.",
+    "what is energy": "Energy is the ability to do work. Forms include kinetic, potential, thermal, and electrical.",
+    "explain newton's first law": "Newton's First Law: An object stays at rest or in uniform motion unless acted upon by a net external force (Inertia).",
+    "what is gravity": "Gravity is the force that attracts objects with mass. On Earth, it pulls objects at 9.8 m/s².",
+    "what is pressure": "Pressure = Force ÷ Area (P = F/A). Measured in Pascals (Pa).",
+    "what is work": "Work = Force × Distance (W = Fd). Measured in Joules (J).",
+    "explain reflection of light": "Reflection: light bounces off a surface. Angle of incidence = angle of reflection.",
+    "what is a convex lens": "A convex lens converges light to a focal point. Used in magnifying glasses and cameras.",
+    "what is diffusion": "Diffusion: particles move from high to low concentration until evenly spread.",
+    "what is osmosis": "Osmosis: water moves through a semi-permeable membrane from dilute to concentrated solution.",
+    "explain respiration": "Respiration breaks down glucose with oxygen to release energy: C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + Energy.",
+    "what are enzymes": "Enzymes are protein catalysts that speed up biological reactions. Each enzyme has a specific shape for its substrate.",
+    "what is metabolism": "Metabolism is all chemical reactions in a living organism: breaking down food (catabolism) and building molecules (anabolism).",
+    "explain homeostasis": "Homeostasis maintains stable internal conditions (temperature, blood sugar, water balance) despite external changes.",
+    "what is a food chain": "A food chain shows energy flow: producers → herbivores → carnivores → decomposers.",
+    "explain transpiration": "Transpiration is water loss from leaves through stomata, driving water uptake from roots.",
+    "what is atmosphere": "Earth's atmosphere: nitrogen (78%), oxygen (21%), with gases that protect life and retain heat.",
+    "what is lithosphere": "The lithosphere is Earth's rigid outer shell (crust + upper mantle), divided into tectonic plates.",
+    "what is biosphere": "The biosphere is the zone of life on Earth, including all organisms and their environments.",
+    "explain nitrogen cycle": "Nitrogen cycle: fixation → nitrification → assimilation → ammonification → denitrification.",
+    "what is deforestation": "Deforestation clears forests for agriculture/urbanization, causing biodiversity loss and soil erosion.",
+    "what is urbanization": "Urbanization is population growth in cities, increasing demand for infrastructure and services.",
+    "explain greenhouse effect": "Greenhouse effect: gases like CO₂ trap solar heat, warming Earth. Excess causes global warming.",
+    "what is a vector": "A vector has magnitude and direction (e.g., velocity, force). Drawn as arrows.",
+    "what is equilibrium": "Equilibrium: all forces balanced, no net change. In chemistry: forward rate = reverse rate.",
+    "what is friction": "Friction opposes motion between surfaces. Depends on roughness and force. Useful for walking, wasteful for wear.",
+    "explain uniform circular motion": "Uniform circular motion: constant speed in a circle, with centripetal acceleration toward center.",
+    "what is capacitance": "Capacitance stores electric charge (Farads). Depends on plate area, gap, and dielectric.",
+    "what is current electricity": "Current electricity: flow of electrons through a conductor. Measured in Amperes. I = V/R (Ohm's Law).",
+    "explain electromagnetism": "Electromagnetism: electric current creates magnetic fields; changing fields induce current. Powers motors and generators.",
+    "what is geometric optics": "Geometric optics: light as rays. Law of reflection, Snell's law of refraction, total internal reflection.",
+    "what is periodic table": "The periodic table organizes elements by atomic number. Groups share properties; periods show electron shell count.",
+    "explain chemical bonding": "Chemical bonds form when atoms share (covalent), transfer (ionic), or pool (metallic) electrons.",
+    "what is a buffer solution": "A buffer resists pH changes by neutralizing added acid or base. Contains a weak acid and its conjugate base.",
+    "explain electrolysis": "Electrolysis uses electricity to decompose compounds. Ions move to electrodes where oxidation or reduction occurs.",
+    "what is stoichiometry": "Stoichiometry calculates reactant and product quantities using balanced equation coefficients.",
+    "explain rates of reaction": "Reaction rate depends on concentration, temperature, surface area, and catalysts.",
+    "what is equilibrium constant": "The equilibrium constant (Kc) quantifies the ratio of products to reactants at equilibrium.",
+    "explain acids and bases": "Acids donate protons (H⁺); bases accept them. pH = -log[H⁺]. Neutral = 7.",
+    "what is oxidation": "Oxidation is loss of electrons or gain of oxygen. Always paired with reduction.",
+    "explain polymers": "Polymers are long chains of repeating monomers. Examples: proteins, DNA, plastics.",
+    "what is chromatography": "Chromatography separates mixtures by differential movement through a medium.",
+    "explain electrolytes": "Electrolytes conduct electricity when dissolved. Strong ones fully dissociate; weak ones partially.",
+    "what is cation": "A cation is a positively charged ion (lost electrons). Found at the anode.",
+    "explain filtration": "Filtration separates insoluble solids from liquids by passing through a filter.",
+    "what is distillation": "Distillation separates liquids by boiling and condensing based on different boiling points.",
+    "explain evaporation": "Evaporation: liquid turns to vapor at any temperature from the surface. Faster with heat and wind.",
+    "what is condensation": "Condensation: gas turns to liquid when cooled, releasing heat energy.",
+    "explain solubility": "Solubility is the maximum solute that dissolves in a solvent at a given temperature.",
+    "what is an alloy": "An alloy is a mixture of metals with improved properties, like steel (iron + carbon).",
+    "explain exothermic reaction": "An exothermic reaction releases heat to surroundings. Example: combustion.",
+    "what is endothermic": "An endothermic reaction absorbs heat from surroundings. Example: thermal decomposition.",
+  };
+
+  return normalized in quickReplies ? quickReplies[normalized] : null;
 }
 
 function getFileKind(file: Express.Multer.File): UploadedFileKind {
@@ -304,6 +370,14 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
       : getInstantTutorReply(trimmedMessage);
     if (instantReply) {
       res.json({ reply: instantReply, subject: responseSubject });
+      return;
+    }
+  }
+
+  if (!uploadedFile) {
+    const quickReply = getQuickTutorReply(trimmedMessage);
+    if (quickReply) {
+      res.json({ reply: quickReply, subject: responseSubject });
       return;
     }
   }

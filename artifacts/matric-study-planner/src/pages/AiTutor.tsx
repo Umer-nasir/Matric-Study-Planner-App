@@ -83,6 +83,98 @@ function getInstantTutorReply(message: string, subject: string): string | null {
     : 'Hi! Ask me any Matric question and I will keep the answer clear and exam-focused.';
 }
 
+function getQuickReply(message: string, subject: string): string | null {
+  const normalized = message.trim().toLowerCase().replace(/[!.?]+$/g, '');
+
+  const generalReplies: Record<string, string> = {
+    'explain photosynthesis':
+      'Photosynthesis is the process by which green plants make their own food. Plants use sunlight, water, and carbon dioxide to produce glucose and oxygen. The process happens in chloroplasts, which contain chlorophyll that captures sunlight.',
+    "what is newton's second law":
+      "Newton's Second Law states that Force equals mass times acceleration (F = ma). This means the heavier an object is, the more force you need to accelerate it. The greater the force, the faster it accelerates.",
+    'how do i revise algebra':
+      'Start by reviewing basic formulas and their derivations. Practice solving equations step by step. Focus on factorization, quadratic equations, and simultaneous equations. Work through past paper questions on these topics.',
+    'what is a variable':
+      'A variable is a symbol (usually a letter like x or y) that represents an unknown value in mathematics. Variables can change depending on the equation or problem being solved.',
+    'what is a function':
+      'A function is a relationship where each input has exactly one output. For example, f(x) = 2x + 3 means for every x value, there is one result. Functions can be shown as equations, tables, or graphs.',
+    'what is momentum':
+      'Momentum is the product of an object\'s mass and velocity. It is a vector quantity, meaning it has both magnitude and direction. The formula is p = mv (momentum = mass × velocity).',
+    'what is energy':
+      'Energy is the ability to do work. It comes in many forms: kinetic (moving), potential (stored), thermal (heat), and electrical. Energy can be transformed but cannot be created or destroyed.',
+    'explain newton\'s first law':
+      "Newton's First Law (Law of Inertia) states that an object at rest stays at rest, and an object in motion stays in motion at constant velocity, unless acted upon by an external force.",
+    'what is gravity':
+      'Gravity is a force that attracts objects with mass toward each other. On Earth, gravity pulls objects downward at approximately 9.8 m/s². It keeps planets in orbit and causes apples to fall from trees.',
+    'what is pressure':
+      'Pressure is the force applied per unit area. The formula is P = F/A (pressure = force ÷ area). Pressure increases when force increases or area decreases. It is measured in Pascals (Pa).',
+    'what is work':
+      'Work is done when a force moves an object over a distance. The formula is W = F × d (work = force × distance). Work is measured in Joules (J).',
+    'explain reflection of light':
+      'Reflection occurs when light bounces off a surface. The angle of incidence equals the angle of reflection. There are two types: regular reflection (smooth surfaces like mirrors) and diffuse reflection (rough surfaces).',
+    'what is a convex lens':
+      'A convex lens is thicker at the center than at the edges. It converges light rays to a focal point and can form real or virtual images. It is used in magnifying glasses, cameras, and eyeglasses for farsightedness.',
+    'what is diffusion':
+      'Diffusion is the movement of particles from an area of higher concentration to an area of lower concentration. It happens naturally in gases and liquids until the particles are evenly spread out.',
+    'what is osmosis':
+      'Osmosis is the movement of water molecules through a semi-permeable membrane from a dilute solution to a concentrated solution. It is a special type of diffusion specific to water.',
+    'explain respiration':
+      'Respiration is the process of breaking down glucose to release energy. It occurs in cells and involves oxygen intake and carbon dioxide release. The equation is: Glucose + Oxygen → Carbon Dioxide + Water + Energy.',
+    'what are enzymes':
+      'Enzymes are biological catalysts that speed up chemical reactions in living organisms. They are proteins with specific shapes that bind to substrates. Each enzyme works on a specific reaction.',
+    'what is metabolism':
+      'Metabolism is the sum of all chemical reactions in a living organism. It includes breaking down food for energy (catabolism) and building new molecules (anabolism).',
+    'explain homeostasis':
+      'Homeostasis is the body\'s ability to maintain a stable internal environment despite external changes. Examples include body temperature regulation, blood sugar levels, and water balance.',
+    'what is a food chain':
+      'A food chain shows how energy and nutrients pass from one organism to another. It starts with producers (plants), then primary consumers (herbivores), secondary consumers (carnivores), and decomposers.',
+    'explain transpiration':
+      'Transpiration is the loss of water vapor from plant leaves through stomata. It helps draw water and minerals from roots to leaves, cools the plant, and is driven by evaporation from leaf surfaces.',
+    'what is atmosphere':
+      'The atmosphere is the layer of gases surrounding Earth. It contains nitrogen (78%), oxygen (21%), and other gases. It protects life from harmful UV rays and keeps the planet warm through the greenhouse effect.',
+    'what is lithosphere':
+      'The lithosphere is Earth\'s rigid outer layer, including the crust and upper mantle. It is divided into tectonic plates that move slowly over the asthenosphere, causing earthquakes and volcanoes.',
+    'what is biosphere':
+      'The biosphere is the part of Earth where life exists. It includes all living organisms and their environments, spanning from the deepest oceans to the upper atmosphere where life can be found.',
+    'explain nitrogen cycle':
+      'The nitrogen cycle converts nitrogen between different forms. Key steps: nitrogen fixation (converting N₂ to usable forms), nitrification, assimilation by plants, ammonification, and denitrification back to N₂.',
+    'what is deforestation':
+      'Deforestation is the clearing of forests for agriculture, logging, or urbanization. It causes loss of biodiversity, soil erosion, increased carbon dioxide levels, and disruption of water cycles.',
+    'what is urbanization':
+      'Urbanization is the growth of urban areas as more people move to cities. It leads to increased demand for housing, infrastructure, and services, often causing environmental and social challenges.',
+    'explain greenhouse effect':
+      'The greenhouse effect is when certain gases (CO₂, methane, water vapor) trap heat from the sun in Earth\'s atmosphere. This keeps the planet warm enough for life but too much causes global warming.',
+    'what is a vector':
+      'A vector is a quantity with both magnitude and direction, unlike scalars which only have magnitude. Examples include velocity, force, and acceleration. Vectors are drawn as arrows.',
+    'what is equilibrium':
+      'Equilibrium is a state where all forces are balanced and there is no net change. In chemistry, it is when forward and reverse reaction rates are equal. In physics, it is when net force is zero.',
+    'what is friction':
+      'Friction is a force that opposes motion between two surfaces in contact. It can be useful (walking, braking) or wasteful (wear and tear). It depends on surface roughness and the force pressing surfaces together.',
+    'explain uniform circular motion':
+      'Uniform circular motion is when an object moves in a circle at constant speed. The direction constantly changes, so there is centripetal acceleration directed toward the center, requiring a centripetal force.',
+    'what is capacitance':
+      'Capacitance is the ability of a component to store electric charge. A capacitor stores energy in an electric field. Capacitance is measured in Farads (F) and depends on plate area, distance, and dielectric material.',
+    'what is current electricity':
+      'Current electricity is the flow of electric charges (electrons) through a conductor. It is measured in Amperes (A). Ohm\'s Law relates current, voltage, and resistance: I = V/R.',
+    'explain electromagnetism':
+      'Electromagnetism is the interaction between electricity and magnetism. An electric current creates a magnetic field, and a changing magnetic field induces an electric current. This principle powers motors and generators.',
+    'what is geometric optics':
+      'Geometric optics studies light as rays that travel in straight lines and can be reflected or refracted. Key principles include the law of reflection, Snell\'s law of refraction, and total internal reflection.',
+  };
+
+  if (subject === 'Urdu' || subjectStarterQuestions(subject).includes(message.trim())) {
+    // For Urdu subjects, keep a generic instant reply for common questions
+    if (normalized in generalReplies) {
+      return generalReplies[normalized];
+    }
+  }
+
+  if (normalized in generalReplies) {
+    return generalReplies[normalized];
+  }
+
+  return null;
+}
+
 function createImageThumbnail(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -286,6 +378,15 @@ export default function AiTutor() {
       setTutorChatHistory([
         ...optimisticHistory,
         createMessage('assistant', instantReply),
+      ]);
+      return;
+    }
+
+    const quickReply = !attachment ? getQuickReply(trimmed, selectedSubject) : null;
+    if (quickReply) {
+      setTutorChatHistory([
+        ...optimisticHistory,
+        createMessage('assistant', quickReply),
       ]);
       return;
     }
