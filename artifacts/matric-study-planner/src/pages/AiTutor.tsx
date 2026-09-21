@@ -451,14 +451,10 @@ export default function AiTutor() {
         createMessage('assistant', data.reply),
       ]);
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'AI is busy right now. Try again in a moment.';
       setTutorChatHistory([
         ...optimisticHistory,
-        createMessage(
-          'system',
-          err instanceof Error
-            ? err.message.replace(/^.*fetch.*$/i, 'AI is busy right now. Try again in a moment.')
-            : 'AI is busy right now. Try again in a moment.',
-        ),
+        createMessage('system', errorMessage),
       ]);
     } finally {
       setIsSending(false);

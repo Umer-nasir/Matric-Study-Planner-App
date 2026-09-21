@@ -502,9 +502,16 @@ router.post("/tutor-chat", runUpload, async (req: Request, res: Response): Promi
     res.json({ reply: cleanedReply, subject: responseSubject });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.toLowerCase().includes("invalid image data")) {
+    const lower = message.toLowerCase();
+    if (lower.includes("invalid image data") || lower.includes("could not read this image") || lower.includes("does not support image")) {
       res.status(422).json({
         error: "I could not read this image. Please upload a clear JPG, PNG, or WEBP photo of the question.",
+      });
+      return;
+    }
+    if (lower.includes("too large") || lower.includes("exceed")) {
+      res.status(413).json({
+        error: "Image is too large. Please upload an image smaller than 10MB.",
       });
       return;
     }
